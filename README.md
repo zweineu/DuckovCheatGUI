@@ -1,7 +1,9 @@
-# Duckov Cheat GUI Mod
+# Escape from Duckov In Game Cheat GUI Mod
 
 ![Version](https://img.shields.io/badge/version-0.1.0-blue.svg)
 ![Game](https://img.shields.io/badge/game-Escape%20from%20Duckov-green.svg)
+
+项目代码和文档全部由AI生成，如有问题请问AI。
 
 一个功能强大的《Escape from Duckov》游戏作弊菜单Mod，提供物品生成、玩家无敌、快速传送等功能。
 
