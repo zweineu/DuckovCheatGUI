@@ -3,6 +3,13 @@
 ![Version](https://img.shields.io/badge/version-0.1.0-blue.svg)
 ![Game](https://img.shields.io/badge/game-Escape%20from%20Duckov-green.svg)
 
+一个功能强大的《Escape from Duckov》游戏作弊菜单Mod，提供物品生成、玩家无敌、快速传送等功能。
+
+## 📸 界面展示
+
+![Cheat Menu Screenshot](screenshot.png)
+*作弊菜单界面 - 物品生成器功能展示*
+
 ## ✨ 功能特性
 
 ### 🎁 物品生成器
