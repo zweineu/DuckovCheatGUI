@@ -7,17 +7,11 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <GameDir>D:\SteamLibrary\steamapps\common\Escape from Duckov\BepInEx\plugins\..\..</GameDir>
+    <GameDir>D:\SteamLibrary\steamapps\common\Escape from Duckov</GameDir>
     <ManagedDir>$(GameDir)\Duckov_Data\Managed</ManagedDir>
-    <BepInExDir>$(GameDir)\BepInEx\core</BepInExDir>
   </PropertyGroup>
 
   <ItemGroup>
-    <Reference Include="BepInEx">
-      <HintPath>$(BepInExDir)\BepInEx.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    
     <Reference Include="UnityEngine">
       <HintPath>$(ManagedDir)\UnityEngine.dll</HintPath>
       <Private>False</Private>
@@ -47,9 +41,9 @@
       <HintPath>$(ManagedDir)\ItemStatsSystem.dll</HintPath>
       <Private>False</Private>
     </Reference>
-
+    
     <Reference Include="0Harmony">
-      <HintPath>$(BepInExDir)\0Harmony.dll</HintPath>
+      <HintPath>.\0Harmony.dll</HintPath>
       <Private>False</Private>
     </Reference>
     

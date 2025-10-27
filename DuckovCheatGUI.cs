@@ -1,47 +1,58 @@
-using BepInEx;
-using BepInEx.Logging;
-using HarmonyLib;
-using UnityEngine;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.IO;
+using System.Linq;
+using System.Reflection;
+using Duckov.Modding;
+using HarmonyLib;
+using UnityEngine;
 using ItemStatsSystem;
 using Newtonsoft.Json;
 
 namespace DuckovCheatGUI
 {
-    [BepInPlugin("com.dandan.duckov.cheatgui", "Duckov Cheat GUI", "0.1.0")]
-    public class CheatGUI : BaseUnityPlugin
+    public class ModBehaviour : Duckov.Modding.ModBehaviour
     {
-        public static ManualLogSource Log { get; private set; }
         public static GUIRenderer Renderer;
         public static string CacheFilePath;
-        
-        private void Awake()
+        private Harmony harmony;
+
+        private void OnEnable()
         {
-            Log = Logger;
+            UnityEngine.Debug.Log("=================================");
+            UnityEngine.Debug.Log("CheatGUI Mod v0.1.0 已加载！");
             
-            // 设置缓存文件路径
-            CacheFilePath = Path.Combine(Paths.ConfigPath, "DuckovCheatGUI_ItemCache.json");
+            // 设置缓存文件路径（使用mod目录）
+            CacheFilePath = Path.Combine(Application.dataPath, "..", "DuckovCheatGUI", "ItemCache.json");
             
-            Log.LogInfo("=================================");
-            Log.LogInfo("作弊菜单 Mod v0.1.0 已加载！");
-            Log.LogInfo($"缓存文件: {CacheFilePath}");
-            Log.LogInfo("=================================");
+            // 确保目录存在
+            string directory = Path.GetDirectoryName(CacheFilePath);
+            if (!Directory.Exists(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
             
+            UnityEngine.Debug.Log($"缓存文件: {CacheFilePath}");
+            UnityEngine.Debug.Log("=================================");
+
             try
             {
-                var harmony = new Harmony("com.dandan.duckov.cheatgui");
-                harmony.PatchAll();
+                this.harmony = new Harmony("com.dandan.duckov.cheatgui");
+                this.harmony.PatchAll(Assembly.GetExecutingAssembly());
                 
-                Log.LogInfo("[成功] Harmony 补丁已应用");
-                Log.LogInfo("进入游戏后按 Home 键打开菜单");
+                UnityEngine.Debug.Log("[成功] Harmony 补丁已应用");
+                UnityEngine.Debug.Log("进入游戏后按 Home 键打开菜单");
             }
             catch (Exception e)
             {
-                Log.LogError($"初始化失败: {e}");
+                UnityEngine.Debug.LogError($"初始化失败: {e}");
             }
+        }
+
+        private void OnDisable()
+        {
+            this.harmony.UnpatchAll("com.dandan.duckov.cheatgui");
+            UnityEngine.Debug.Log("CheatGUI Mod 已卸载");
         }
     }
 
@@ -57,25 +68,26 @@ namespace DuckovCheatGUI
             {
                 try
                 {
-                    CheatGUI.Log.LogInfo("[>>] 创建GUI GameObject...");
+                    UnityEngine.Debug.Log("[>>] 创建GUI GameObject...");
                     
                     guiObject = new GameObject("CheatGUI_Renderer");
                     UnityEngine.Object.DontDestroyOnLoad(guiObject);
-                    CheatGUI.Renderer = guiObject.AddComponent<GUIRenderer>();
+                    ModBehaviour.Renderer = guiObject.AddComponent<GUIRenderer>();
                     
-                    CheatGUI.Log.LogInfo("[成功] GUI 创建成功！");
+                    UnityEngine.Debug.Log("[成功] GUI 创建成功！");
                     initialized = true;
                 }
                 catch (Exception e)
                 {
-                    CheatGUI.Log.LogError($"创建GUI失败: {e}");
+                    UnityEngine.Debug.LogError($"创建GUI失败: {e}");
                 }
             }
             
             if (Input.GetKeyDown(KeyCode.Home))
             {
-                CheatGUI.Renderer?.ToggleWindow();
+                ModBehaviour.Renderer?.ToggleWindow();
             }
+
         }
     }
 
@@ -125,11 +137,11 @@ namespace DuckovCheatGUI
                     LoadItemsFromCache();
                 }
                 
-                CheatGUI.Log.LogInfo("[菜单] 菜单打开");
+                UnityEngine.Debug.Log("[菜单] 菜单打开");
             }
             else
             {
-                CheatGUI.Log.LogInfo("[菜单] 菜单关闭");
+                UnityEngine.Debug.Log("[菜单] 菜单关闭");
             }
         }
 
@@ -138,28 +150,28 @@ namespace DuckovCheatGUI
         {
             try
             {
-                if (File.Exists(CheatGUI.CacheFilePath))
+                if (File.Exists(ModBehaviour.CacheFilePath))
                 {
-                    CheatGUI.Log.LogInfo("[加载] 从缓存加载物品列表...");
+                    UnityEngine.Debug.Log("[加载] 从缓存加载物品列表...");
                     
-                    string json = File.ReadAllText(CheatGUI.CacheFilePath);
+                    string json = File.ReadAllText(ModBehaviour.CacheFilePath);
                     var cache = JsonConvert.DeserializeObject<ItemCache>(json);
                     
                     allItems = cache.Items;
                     cacheTime = cache.CacheTime;
                     
-                    CheatGUI.Log.LogInfo($"[成功] 从缓存加载 {allItems.Count} 个物品");
-                    CheatGUI.Log.LogInfo($"缓存时间: {cacheTime:yyyy-MM-dd HH:mm:ss}");
+                    UnityEngine.Debug.Log($"[成功] 从缓存加载 {allItems.Count} 个物品");
+                    UnityEngine.Debug.Log($"缓存时间: {cacheTime:yyyy-MM-dd HH:mm:ss}");
                     itemsLoaded = true;
                 }
                 else
                 {
-                    CheatGUI.Log.LogInfo("[警告] 缓存文件不存在，需要扫描物品");
+                    UnityEngine.Debug.Log("[警告] 缓存文件不存在，需要扫描物品");
                 }
             }
             catch (Exception e)
             {
-                CheatGUI.Log.LogError($"加载缓存失败: {e.Message}");
+                UnityEngine.Debug.LogError($"加载缓存失败: {e.Message}");
             }
         }
 
@@ -171,10 +183,10 @@ namespace DuckovCheatGUI
             
             try
             {
-                CheatGUI.Log.LogInfo("[扫描] 扫描游戏物品...");
+                UnityEngine.Debug.Log("[扫描] 扫描游戏物品...");
                 
                 Item[] allItemComponents = Resources.FindObjectsOfTypeAll<Item>();
-                CheatGUI.Log.LogInfo($"找到 {allItemComponents.Length} 个 Item 组件");
+                UnityEngine.Debug.Log($"找到 {allItemComponents.Length} 个 Item 组件");
                 
                 HashSet<int> addedIds = new HashSet<int>();
                 
@@ -207,7 +219,7 @@ namespace DuckovCheatGUI
                     }
                     catch (Exception e)
                     {
-                        CheatGUI.Log.LogWarning($"读取物品失败: {e.Message}");
+                        UnityEngine.Debug.LogWarning($"读取物品失败: {e.Message}");
                     }
                 }
                 
@@ -217,12 +229,12 @@ namespace DuckovCheatGUI
                 // 保存到缓存
                 SaveItemsToCache();
                 
-                CheatGUI.Log.LogInfo($"[成功] 扫描完成！共 {allItems.Count} 个物品");
+                UnityEngine.Debug.Log($"[成功] 扫描完成！共 {allItems.Count} 个物品");
                 itemsLoaded = true;
             }
             catch (Exception e)
             {
-                CheatGUI.Log.LogError($"扫描失败: {e}");
+                UnityEngine.Debug.LogError($"扫描失败: {e}");
             }
             finally
             {
@@ -242,204 +254,120 @@ namespace DuckovCheatGUI
                 };
                 
                 string json = JsonConvert.SerializeObject(cache, Formatting.Indented);
-                File.WriteAllText(CheatGUI.CacheFilePath, json);
-                
+                File.WriteAllText(ModBehaviour.CacheFilePath, json);
                 cacheTime = cache.CacheTime;
-                CheatGUI.Log.LogInfo($"[保存] 已保存到缓存: {CheatGUI.CacheFilePath}");
+                
+                UnityEngine.Debug.Log($"[成功] 缓存已保存: {allItems.Count} 个物品");
             }
             catch (Exception e)
             {
-                CheatGUI.Log.LogError($"保存缓存失败: {e.Message}");
-            }
-        }
-
-        // 搜索物品
-        private void SearchItems()
-        {
-            searchResults.Clear();
-            
-            if (string.IsNullOrWhiteSpace(searchText))
-            {
-                return;
-            }
-            
-            string search = searchText.ToLower().Trim();
-            
-            // 如果是纯数字，按ID精确搜索
-            if (int.TryParse(search, out int searchId))
-            {
-                searchResults = allItems.Where(item => item.id == searchId).ToList();
-            }
-            else
-            {
-                // 按名称和描述模糊搜索
-                searchResults = allItems.Where(item =>
-                    item.name.ToLower().Contains(search) ||
-                    item.description.ToLower().Contains(search)
-                ).Take(50).ToList(); // 限制50个结果
+                UnityEngine.Debug.LogError($"保存缓存失败: {e.Message}");
             }
         }
 
         private void OnGUI()
         {
             if (!showWindow) return;
-
-            try
-            {
-                GUI.skin.label.fontSize = 13;
-                GUI.skin.button.fontSize = 13;
-                GUI.skin.textField.fontSize = 13;
-                
-                windowRect = GUI.Window(88888, windowRect, DrawWindow, "Duckov 作弊菜单 v0.1.0");
-            }
-            catch (Exception e)
-            {
-                CheatGUI.Log.LogError($"OnGUI错误: {e.Message}");
-            }
+            
+            windowRect = GUILayout.Window(123456, windowRect, DrawWindow, "作弊菜单 v0.1.0");
         }
 
         private void DrawWindow(int windowID)
         {
-            try
+            GUILayout.BeginVertical();
+            
+            // 标签页
+            GUILayout.BeginHorizontal();
+            for (int i = 0; i < tabs.Length; i++)
             {
-                GUILayout.BeginVertical();
-
-                // 标签页
-                GUILayout.BeginHorizontal();
-                for (int i = 0; i < tabs.Length; i++)
+                if (GUILayout.Toggle(currentTab == i, tabs[i], GUI.skin.button, GUILayout.Height(35)))
                 {
-                    if (GUILayout.Button(tabs[i], GUILayout.Height(30)))
-                    {
-                        currentTab = i;
-                    }
+                    currentTab = i;
                 }
-                GUILayout.EndHorizontal();
-                
-                GUILayout.Space(5);
-                
-                switch (currentTab)
-                {
-                    case 0:
-                        DrawItemSpawnerTab();
-                        break;
-                    case 1:
-                        DrawPlayerCheatTab();
-                        break;
-                    case 2:
-                        DrawSettingsTab();
-                        break;
-                }
-                
-                GUILayout.Space(10);
-                
-                GUILayout.BeginHorizontal();
-                if (GUILayout.Button("[X] 关闭 (Home)", GUILayout.Height(35)))
-                {
-                    ToggleWindow();
-                }
-                GUILayout.EndHorizontal();
-
-                GUILayout.EndVertical();
-                
-                GUI.DragWindow(new Rect(0, 0, 10000, 25));
             }
-            catch (Exception e)
+            GUILayout.EndHorizontal();
+            
+            GUILayout.Space(10);
+            
+            // 显示对应标签页
+            switch (currentTab)
             {
-                CheatGUI.Log.LogError($"DrawWindow错误: {e.Message}");
+                case 0:
+                    DrawItemSpawnTab();
+                    break;
+                case 1:
+                    DrawPlayerCheatTab();
+                    break;
+                case 2:
+                    DrawSettingsTab();
+                    break;
             }
+            
+            GUILayout.EndVertical();
+            
+            GUI.DragWindow(new Rect(0, 0, windowRect.width, 20));
         }
 
-        private void DrawItemSpawnerTab()
+        private void DrawItemSpawnTab()
         {
-            GUILayout.Label("=== 物品生成器 ===", GUI.skin.box);
+            GUILayout.Label("=== 物品生成 ===", GUI.skin.box);
             
+            GUILayout.Space(5);
+            
+            // 状态信息
             if (isScanning)
             {
-                GUILayout.Label("[等待] 正在扫描物品，请稍候...", GUI.skin.box);
-                return;
+                GUILayout.Label("[扫描中...] 正在扫描物品，请稍候", GUI.skin.box);
             }
-            
-            if (!itemsLoaded)
+            else if (!itemsLoaded)
             {
-                GUILayout.Label("物品列表未加载", GUI.skin.box);
-                if (GUILayout.Button("扫描游戏物品", GUILayout.Height(40)))
-                {
-                    ScanAndCacheItems();
-                }
-                return;
+                GUILayout.Label("[未加载] 点击设置标签页扫描物品", GUI.skin.box);
             }
             
-            // 快速生成（按ID）
-            GUILayout.BeginVertical(GUI.skin.box);
-            GUILayout.Label("快速生成（输入物品ID）:");
+            GUILayout.Space(5);
             
+            // ID直接生成
             GUILayout.BeginHorizontal();
-            GUILayout.Label("ID:", GUILayout.Width(30));
+            GUILayout.Label("物品ID:", GUILayout.Width(60));
             itemIdInput = GUILayout.TextField(itemIdInput, GUILayout.Width(100));
-            
             GUILayout.Label("数量:", GUILayout.Width(50));
             itemCountInput = GUILayout.TextField(itemCountInput, GUILayout.Width(80));
-            
-            if (GUILayout.Button("生成", GUILayout.Height(25), GUILayout.Width(80)))
+            if (GUILayout.Button("生成", GUILayout.Height(30)))
             {
                 SpawnItemById();
             }
             GUILayout.EndHorizontal();
-            GUILayout.EndVertical();
             
             GUILayout.Space(10);
             
-            // 搜索框
-            GUILayout.BeginVertical(GUI.skin.box);
-            GUILayout.Label($"搜索物品（共 {allItems.Count} 个）:");
-            
+            // 搜索
             GUILayout.BeginHorizontal();
             GUILayout.Label("搜索:", GUILayout.Width(50));
-            string newSearch = GUILayout.TextField(searchText, GUILayout.Width(350));
+            string newSearch = GUILayout.TextField(searchText);
             if (newSearch != searchText)
             {
                 searchText = newSearch;
-                SearchItems();
-            }
-            if (GUILayout.Button("清空", GUILayout.Width(60)))
-            {
-                searchText = "";
-                searchResults.Clear();
-            }
-            if (GUILayout.Button("搜索", GUILayout.Width(50)))
-            {
-                SearchItems();
+                PerformSearch();
             }
             GUILayout.EndHorizontal();
             
-            GUILayout.Label("提示: 输入ID或名称进行搜索", GUI.skin.label);
-            GUILayout.EndVertical();
-            
             GUILayout.Space(5);
             
-            // 显示搜索结果
-            if (string.IsNullOrWhiteSpace(searchText))
+            // 物品列表
+            if (itemsLoaded)
             {
-                GUILayout.Label("[提示] 请在上方输入搜索关键词", GUI.skin.box, GUILayout.Height(400));
-            }
-            else if (searchResults.Count == 0)
-            {
-                GUILayout.Label($"[X] 未找到匹配 \"{searchText}\" 的物品", GUI.skin.box, GUILayout.Height(400));
-            }
-            else
-            {
-                GUILayout.Label($"找到 {searchResults.Count} 个物品:", GUI.skin.box);
+                GUILayout.Label($"搜索结果: {searchResults.Count} 个物品", GUI.skin.box);
                 
-                itemScrollPosition = GUILayout.BeginScrollView(itemScrollPosition, GUILayout.Height(380));
+                itemScrollPosition = GUILayout.BeginScrollView(itemScrollPosition, GUILayout.Height(450));
                 
                 foreach (var item in searchResults)
                 {
                     GUILayout.BeginVertical(GUI.skin.box);
                     
-                    // 第一行：标题
+                    // 第一行：ID和名称
                     GUILayout.BeginHorizontal();
-                    GUILayout.Label($"【ID:{item.id}】{item.name}", GUI.skin.label);
-                    GUILayout.FlexibleSpace();
+                    GUILayout.Label($"[{item.id}]", GUILayout.Width(60));
+                    GUILayout.Label(item.name, GUILayout.Width(300));
                     GUILayout.EndHorizontal();
                     
                     // 第二行：描述
@@ -498,7 +426,7 @@ namespace DuckovCheatGUI
             if (GUILayout.Button(teleportButtonText, GUILayout.Height(50)))
             {
                 teleportEnabled = !teleportEnabled;
-                CheatGUI.Log.LogInfo($"[成功] 传送功能 {(teleportEnabled ? "已开启" : "已关闭")}");
+                UnityEngine.Debug.Log($"[成功] 传送功能 {(teleportEnabled ? "已开启" : "已关闭")}");
             }
             
             GUILayout.Space(5);
@@ -522,7 +450,7 @@ namespace DuckovCheatGUI
             
             GUILayout.Label($"已加载物品: {allItems.Count} 个");
             GUILayout.Label($"缓存时间: {(cacheTime != DateTime.MinValue ? cacheTime.ToString("yyyy-MM-dd HH:mm:ss") : "无")}");
-            GUILayout.Label($"缓存文件: {Path.GetFileName(CheatGUI.CacheFilePath)}");
+            GUILayout.Label($"缓存文件: {Path.GetFileName(ModBehaviour.CacheFilePath)}");
             GUILayout.Label($"FPS: {(int)(1f / Time.deltaTime)}");
             
             GUILayout.Space(15);
@@ -540,10 +468,10 @@ namespace DuckovCheatGUI
             {
                 try
                 {
-                    if (File.Exists(CheatGUI.CacheFilePath))
+                    if (File.Exists(ModBehaviour.CacheFilePath))
                     {
-                        File.Delete(CheatGUI.CacheFilePath);
-                        CheatGUI.Log.LogInfo("[成功] 缓存文件已删除");
+                        File.Delete(ModBehaviour.CacheFilePath);
+                        UnityEngine.Debug.Log("[成功] 缓存文件已删除");
                         itemsLoaded = false;
                         allItems.Clear();
                         searchResults.Clear();
@@ -551,7 +479,7 @@ namespace DuckovCheatGUI
                 }
                 catch (Exception e)
                 {
-                    CheatGUI.Log.LogError($"删除失败: {e.Message}");
+                    UnityEngine.Debug.LogError($"删除失败: {e.Message}");
                 }
             }
             
@@ -561,11 +489,11 @@ namespace DuckovCheatGUI
             {
                 try
                 {
-                    System.Diagnostics.Process.Start(Path.GetDirectoryName(CheatGUI.CacheFilePath));
+                    System.Diagnostics.Process.Start(Path.GetDirectoryName(ModBehaviour.CacheFilePath));
                 }
                 catch (Exception e)
                 {
-                    CheatGUI.Log.LogError($"打开失败: {e.Message}");
+                    UnityEngine.Debug.LogError($"打开失败: {e.Message}");
                 }
             }
             
@@ -575,11 +503,46 @@ namespace DuckovCheatGUI
             
             if (GUILayout.Button("输出前20个物品到日志", GUILayout.Height(40)))
             {
-                CheatGUI.Log.LogInfo("=== 物品列表（前20个）===");
+                UnityEngine.Debug.Log("=== 物品列表（前20个）===");
                 foreach (var item in allItems.Take(20))
                 {
-                    CheatGUI.Log.LogInfo($"ID:{item.id} | {item.name}");
+                    UnityEngine.Debug.Log($"ID:{item.id} | {item.name}");
                 }
+            }
+        }
+
+        private void PerformSearch()
+        {
+            searchResults.Clear();
+            
+            if (string.IsNullOrWhiteSpace(searchText))
+            {
+                searchResults = allItems.ToList();
+            }
+            else
+            {
+                string lowerSearch = searchText.ToLower();
+                
+                // 先按ID搜索
+                if (int.TryParse(searchText, out int searchId))
+                {
+                    searchResults = allItems.Where(i => i.id == searchId).ToList();
+                }
+                
+                // 如果ID搜索没结果，按名称搜索
+                if (searchResults.Count == 0)
+                {
+                    searchResults = allItems
+                        .Where(i => i.name.ToLower().Contains(lowerSearch) || 
+                                    i.description.ToLower().Contains(lowerSearch))
+                        .ToList();
+                }
+            }
+            
+            // 限制结果数量
+            if (searchResults.Count > 100)
+            {
+                searchResults = searchResults.Take(100).ToList();
             }
         }
 
@@ -594,12 +557,12 @@ namespace DuckovCheatGUI
                 }
                 else
                 {
-                    CheatGUI.Log.LogWarning("[警告] 请输入有效数字");
+                    UnityEngine.Debug.LogWarning("[警告] 请输入有效数字");
                 }
             }
             catch (Exception e)
             {
-                CheatGUI.Log.LogError($"错误: {e.Message}");
+                UnityEngine.Debug.LogError($"错误: {e.Message}");
             }
         }
 
@@ -614,16 +577,16 @@ namespace DuckovCheatGUI
                     var item = allItems.FirstOrDefault(i => i.id == itemId);
                     string name = item != null ? item.name : $"ID:{itemId}";
                     
-                    CheatGUI.Log.LogInfo($"[成功] 生成 {name} x{count}");
+                    UnityEngine.Debug.Log($"[成功] 生成 {name} x{count}");
                 }
                 else
                 {
-                    CheatGUI.Log.LogWarning("[警告] CheatingManager 未就绪");
+                    UnityEngine.Debug.LogWarning("[警告] CheatingManager 未就绪");
                 }
             }
             catch (Exception e)
             {
-                CheatGUI.Log.LogError($"生成错误: {e.Message}");
+                UnityEngine.Debug.LogError($"生成错误: {e.Message}");
             }
         }
 
@@ -634,16 +597,16 @@ namespace DuckovCheatGUI
                 if (CheatingManager.Instance != null)
                 {
                     CheatingManager.Instance.ToggleInvincible();
-                    CheatGUI.Log.LogInfo("[成功] 无敌模式切换");
+                    UnityEngine.Debug.Log("[成功] 无敌模式切换");
                 }
                 else
                 {
-                    CheatGUI.Log.LogWarning("[警告] CheatingManager 未就绪");
+                    UnityEngine.Debug.LogWarning("[警告] CheatingManager 未就绪");
                 }
             }
             catch (Exception e)
             {
-                CheatGUI.Log.LogError($"错误: {e.Message}");
+                UnityEngine.Debug.LogError($"错误: {e.Message}");
             }
         }
 
@@ -654,16 +617,16 @@ namespace DuckovCheatGUI
                 if (CheatingManager.Instance != null)
                 {
                     CheatingManager.Instance.CheatMove();
-                    CheatGUI.Log.LogInfo("[成功] 传送成功");
+                    UnityEngine.Debug.Log("[成功] 传送成功");
                 }
                 else
                 {
-                    CheatGUI.Log.LogWarning("[警告] CheatingManager 未就绪");
+                    UnityEngine.Debug.LogWarning("[警告] CheatingManager 未就绪");
                 }
             }
             catch (Exception e)
             {
-                CheatGUI.Log.LogError($"错误: {e.Message}");
+                UnityEngine.Debug.LogError($"错误: {e.Message}");
             }
         }
     }
