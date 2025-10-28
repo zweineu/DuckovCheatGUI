@@ -7,8 +7,7 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <GameDir>D:\SteamLibrary\steamapps\common\Escape from Duckov</GameDir>
-    <ManagedDir>$(GameDir)\Duckov_Data\Managed</ManagedDir>
+    <ManagedDir>./lib</ManagedDir>
   </PropertyGroup>
 
   <ItemGroup>
