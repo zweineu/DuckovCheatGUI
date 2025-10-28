@@ -23,18 +23,18 @@ namespace DuckovCheatGUI
         {
             UnityEngine.Debug.Log("=================================");
             UnityEngine.Debug.Log("CheatGUI Mod v0.3.0 已加载！");
-            
+
             // 设置缓存文件路径（使用mod目录）
             CacheFilePath = Path.Combine(Application.dataPath, "..", "DuckovCheatGUI", "ItemCache.json");
             ConfigFilePath = Path.Combine(Application.dataPath, "..", "DuckovCheatGUI", "Config.json");
-            
+
             // 确保目录存在
             string directory = Path.GetDirectoryName(CacheFilePath);
             if (!Directory.Exists(directory))
             {
                 Directory.CreateDirectory(directory);
             }
-            
+
             UnityEngine.Debug.Log($"缓存文件: {CacheFilePath}");
             UnityEngine.Debug.Log($"配置文件: {ConfigFilePath}");
             UnityEngine.Debug.Log("=================================");
@@ -44,7 +44,7 @@ namespace DuckovCheatGUI
                 this.harmony = new Harmony("com.dandan.duckov.cheatgui");
                 // Only patch if you need other patches - remove this line if not needed
                 // this.harmony.PatchAll(Assembly.GetExecutingAssembly());
-                
+
                 UnityEngine.Debug.Log("[成功] Mod 初始化完成");
                 UnityEngine.Debug.Log("进入游戏后按 Home 键打开菜单");
             }
@@ -62,11 +62,11 @@ namespace DuckovCheatGUI
                 try
                 {
                     UnityEngine.Debug.Log("[>>] 创建GUI GameObject...");
-                    
+
                     GameObject guiObject = new GameObject("CheatGUI_Renderer");
                     DontDestroyOnLoad(guiObject);
                     Renderer = guiObject.AddComponent<GUIRenderer>();
-                    
+
                     UnityEngine.Debug.Log("[成功] GUI 创建成功！");
                     guiInitialized = true;
                 }
@@ -75,7 +75,7 @@ namespace DuckovCheatGUI
                     UnityEngine.Debug.LogError($"创建GUI失败: {e}");
                 }
             }
-            
+
             // Check for toggle key
             if (Input.GetKeyDown(KeyCode.Home) || Input.GetKeyDown(KeyCode.Backslash))
             {
@@ -116,6 +116,11 @@ namespace DuckovCheatGUI
         private bool itemsLoaded = false;
         private bool isScanning = false;
         private DateTime cacheTime = DateTime.MinValue;
+
+        // ============ Pagination ✨ NEW ============
+        private int currentPage = 0;
+        private int itemsPerPage = 10;
+        private int totalPages => Mathf.Max(1, Mathf.CeilToInt((float)searchResults.Count / itemsPerPage));
 
         // ============ Features ============
         private bool teleportEnabled = false;
@@ -209,10 +214,10 @@ namespace DuckovCheatGUI
                 {
                     string json = File.ReadAllText(ModBehaviour.ConfigFilePath);
                     var config = JsonConvert.DeserializeObject<GUIConfig>(json);
-                    
+
                     uiScale = Mathf.Clamp(config.UIScale, MIN_SCALE, MAX_SCALE);
                     ApplyScale();
-                    
+
                     UnityEngine.Debug.Log($"[配置] 已加载 UI缩放: {uiScale:F1}x");
                 }
             }
@@ -231,10 +236,10 @@ namespace DuckovCheatGUI
                 {
                     UIScale = uiScale
                 };
-                
+
                 string json = JsonConvert.SerializeObject(config, Formatting.Indented);
                 File.WriteAllText(ModBehaviour.ConfigFilePath, json);
-                
+
                 UnityEngine.Debug.Log($"[配置] 已保存 UI缩放: {uiScale:F1}x");
             }
             catch (Exception e)
@@ -248,7 +253,7 @@ namespace DuckovCheatGUI
         {
             windowRect.width = baseWindowWidth * uiScale;
             windowRect.height = baseWindowHeight * uiScale;
-            
+
             // 确保窗口不超出屏幕
             if (windowRect.xMax > Screen.width)
             {
@@ -258,7 +263,7 @@ namespace DuckovCheatGUI
             {
                 windowRect.y = Screen.height - windowRect.height;
             }
-            
+
             // 确保窗口在屏幕内
             windowRect.x = Mathf.Max(0, windowRect.x);
             windowRect.y = Mathf.Max(0, windowRect.y);
@@ -272,13 +277,13 @@ namespace DuckovCheatGUI
                 if (File.Exists(ModBehaviour.CacheFilePath))
                 {
                     UnityEngine.Debug.Log("[加载] 从缓存加载物品列表...");
-                    
+
                     string json = File.ReadAllText(ModBehaviour.CacheFilePath);
                     var cache = JsonConvert.DeserializeObject<ItemCache>(json);
-                    
+
                     allItems = cache.Items;
                     cacheTime = cache.CacheTime;
-                    
+
                     UnityEngine.Debug.Log($"[成功] 从缓存加载 {allItems.Count} 个物品");
                     UnityEngine.Debug.Log($"缓存时间: {cacheTime:yyyy-MM-dd HH:mm:ss}");
                     itemsLoaded = true;
@@ -299,15 +304,15 @@ namespace DuckovCheatGUI
         {
             isScanning = true;
             allItems.Clear();
-            
+
             try
             {
                 UnityEngine.Debug.Log("[扫描] 开始扫描游戏物品...");
-                
+
                 HashSet<int> addedIds = new HashSet<int>();
                 int mainGameCount = 0;
                 int modItemCount = 0;
-                
+
                 // 方法1: 从 ItemAssetsCollection 扫描主游戏物品
                 try
                 {
@@ -315,7 +320,7 @@ namespace DuckovCheatGUI
                     {
                         var allItemEntries = ItemAssetsCollection.Instance.entries;
                         UnityEngine.Debug.Log($"[主游戏] 找到 {allItemEntries.Count} 个物品条目");
-                        
+
                         foreach (var itemEntry in allItemEntries)
                         {
                             try
@@ -323,12 +328,12 @@ namespace DuckovCheatGUI
                                 if (itemEntry.prefab != null)
                                 {
                                     int typeId = itemEntry.typeID;
-                                    
+
                                     if (addedIds.Contains(typeId))
                                         continue;
-                                    
+
                                     addedIds.Add(typeId);
-                                    
+
                                     ItemInfo info = new ItemInfo
                                     {
                                         id = typeId,
@@ -339,7 +344,7 @@ namespace DuckovCheatGUI
                                         weight = itemEntry.prefab.UnitSelfWeight,
                                         isMod = false
                                     };
-                                    
+
                                     allItems.Add(info);
                                     mainGameCount++;
                                 }
@@ -355,37 +360,37 @@ namespace DuckovCheatGUI
                 {
                     UnityEngine.Debug.LogError($"扫描主游戏物品失败: {e}");
                 }
-                
+
                 // 方法2: 通过反射从 dynamicDic 扫描MOD物品
                 try
                 {
                     UnityEngine.Debug.Log("[MOD] 开始扫描MOD物品...");
-                    
-                    var dynamicDicField = typeof(ItemAssetsCollection).GetField("dynamicDic", 
+
+                    var dynamicDicField = typeof(ItemAssetsCollection).GetField("dynamicDic",
                         BindingFlags.NonPublic | BindingFlags.Static);
-                    
+
                     if (dynamicDicField != null)
                     {
                         var dynamicDic = dynamicDicField.GetValue(null) as Dictionary<int, ItemAssetsCollection.DynamicEntry>;
-                        
+
                         if (dynamicDic != null && dynamicDic.Count > 0)
                         {
                             UnityEngine.Debug.Log($"[MOD] 找到 {dynamicDic.Count} 个MOD物品条目");
-                            
+
                             foreach (var kvp in dynamicDic)
                             {
                                 try
                                 {
                                     int modItemTypeId = kvp.Key;
                                     ItemAssetsCollection.DynamicEntry modItemEntry = kvp.Value;
-                                    
+
                                     if (modItemEntry != null && modItemEntry.prefab != null)
                                     {
                                         if (addedIds.Contains(modItemTypeId))
                                             continue;
-                                        
+
                                         addedIds.Add(modItemTypeId);
-                                        
+
                                         ItemInfo info = new ItemInfo
                                         {
                                             id = modItemTypeId,
@@ -396,7 +401,7 @@ namespace DuckovCheatGUI
                                             weight = modItemEntry.prefab.UnitSelfWeight,
                                             isMod = true
                                         };
-                                        
+
                                         allItems.Add(info);
                                         modItemCount++;
                                     }
@@ -421,15 +426,15 @@ namespace DuckovCheatGUI
                 {
                     UnityEngine.Debug.LogError($"扫描MOD物品失败: {e}");
                 }
-                
+
                 // 方法3: 备用方法 - 使用 Resources.FindObjectsOfTypeAll (可能找不到所有物品)
                 if (allItems.Count == 0)
                 {
                     UnityEngine.Debug.Log("[备用] 使用Resources.FindObjectsOfTypeAll扫描...");
-                    
+
                     Item[] allItemComponents = Resources.FindObjectsOfTypeAll<Item>();
                     UnityEngine.Debug.Log($"[备用] 找到 {allItemComponents.Length} 个 Item 组件");
-                    
+
                     foreach (Item item in allItemComponents)
                     {
                         try
@@ -437,14 +442,14 @@ namespace DuckovCheatGUI
                             // 跳过场景实例
                             if (item.gameObject.scene.name != null)
                                 continue;
-                            
+
                             int typeId = item.TypeID;
-                            
+
                             if (addedIds.Contains(typeId))
                                 continue;
-                            
+
                             addedIds.Add(typeId);
-                            
+
                             ItemInfo info = new ItemInfo
                             {
                                 id = typeId,
@@ -455,7 +460,7 @@ namespace DuckovCheatGUI
                                 weight = item.UnitSelfWeight,
                                 isMod = false
                             };
-                            
+
                             allItems.Add(info);
                         }
                         catch (Exception e)
@@ -464,20 +469,20 @@ namespace DuckovCheatGUI
                         }
                     }
                 }
-                
+
                 // 排序
                 allItems = allItems.OrderBy(i => i.id).ToList();
-                
+
                 // 保存到缓存
                 SaveItemsToCache();
-                
+
                 UnityEngine.Debug.Log("=================================");
                 UnityEngine.Debug.Log($"[成功] 扫描完成！");
                 UnityEngine.Debug.Log($"主游戏物品: {mainGameCount} 个");
                 UnityEngine.Debug.Log($"MOD物品: {modItemCount} 个");
                 UnityEngine.Debug.Log($"总计: {allItems.Count} 个物品");
                 UnityEngine.Debug.Log("=================================");
-                
+
                 itemsLoaded = true;
             }
             catch (Exception e)
@@ -500,11 +505,11 @@ namespace DuckovCheatGUI
                     Items = allItems,
                     CacheTime = DateTime.Now
                 };
-                
+
                 string json = JsonConvert.SerializeObject(cache, Formatting.Indented);
                 File.WriteAllText(ModBehaviour.CacheFilePath, json);
                 cacheTime = cache.CacheTime;
-                
+
                 UnityEngine.Debug.Log($"[成功] 缓存已保存: {allItems.Count} 个物品");
             }
             catch (Exception e)
@@ -651,6 +656,7 @@ namespace DuckovCheatGUI
             if (newSearch != searchText)
             {
                 searchText = newSearch;
+                currentPage = 0;
                 PerformSearch();
             }
             GUILayout.EndHorizontal();
@@ -667,22 +673,40 @@ namespace DuckovCheatGUI
             }
             else
             {
+                // Pagination Info
+                GUILayout.BeginHorizontal();
                 GUILayout.Label($"[OK] 找到 {searchResults.Count} 个物品", CreateBoxStyle(FONT_SIZE_MEDIUM, colorSuccess), GUILayout.Height(STATUS_MESSAGE_HEIGHT));
+                GUILayout.Label($"第 {currentPage + 1}/{totalPages} 页", CreateLabelStyle(FONT_SIZE_MEDIUM, colorHeader), GUILayout.Height(STATUS_MESSAGE_HEIGHT));
+                GUILayout.EndHorizontal();
             }
 
             GUILayout.Space(8);
-
-            // Items List
+            // Pagination Controls
+            if (itemsLoaded && searchResults.Count > 0)
+            {
+                GUILayout.Space(5);
+            }
+            // Items List (Paginated)
             if (itemsLoaded)
             {
                 itemScrollPosition = GUILayout.BeginScrollView(itemScrollPosition, GUILayout.ExpandHeight(true));
 
-                foreach (var item in searchResults)
+                // Calculate range for current page
+                int startIndex = currentPage * itemsPerPage;
+                int endIndex = Mathf.Min(startIndex + itemsPerPage, searchResults.Count);
+
+                for (int i = startIndex; i < endIndex; i++)
                 {
-                    DrawItemCard(item);
+                    DrawItemCard(searchResults[i]);
                 }
 
                 GUILayout.EndScrollView();
+            }
+            // Bottom Pagination Controls
+            if (itemsLoaded && searchResults.Count > 0)
+            {
+                GUILayout.Space(5);
+                DrawPaginationControls();
             }
         }
 
@@ -899,11 +923,90 @@ namespace DuckovCheatGUI
 
             GUILayout.EndVertical();
         }
+        // ✨ NEW: Pagination Controls
+        private void DrawPaginationControls()
+        {
+            GUILayout.BeginHorizontal(GUILayout.Height(STANDARD_BUTTON_HEIGHT));
 
+            var btnStyle = CreateButtonStyle(FONT_SIZE_MEDIUM);
+            var disabledStyle = CreateButtonStyle(FONT_SIZE_MEDIUM);
+            disabledStyle.normal.textColor = colorMuted;
+
+            // First Page Button
+            GUI.enabled = currentPage > 0;
+            if (GUILayout.Button("<<", currentPage > 0 ? btnStyle : disabledStyle,
+                GUILayout.Width(SMALL_BUTTON_WIDTH), GUILayout.Height(STANDARD_BUTTON_HEIGHT)))
+            {
+                currentPage = 0;
+                itemScrollPosition = Vector2.zero;
+            }
+
+            // Previous Page Button
+            if (GUILayout.Button("<", currentPage > 0 ? btnStyle : disabledStyle,
+                GUILayout.Width(SMALL_BUTTON_WIDTH), GUILayout.Height(STANDARD_BUTTON_HEIGHT)))
+            {
+                currentPage--;
+                itemScrollPosition = Vector2.zero;
+            }
+            GUI.enabled = true;
+
+            // Page Info
+            GUILayout.FlexibleSpace();
+            GUILayout.Label($"{currentPage + 1} / {totalPages}",
+                CreateLabelStyle(FONT_SIZE_LARGE, colorHeader),
+                GUILayout.Height(STANDARD_BUTTON_HEIGHT));
+            GUILayout.FlexibleSpace();
+
+            // Items Per Page Selector
+            GUILayout.Label("每页:", CreateLabelStyle(FONT_SIZE_SMALL, Color.white), GUILayout.Width(50));
+
+            var smallBtnStyle = CreateButtonStyle(FONT_SIZE_SMALL);
+            if (GUILayout.Button("10", itemsPerPage == 10 ? CreateButtonStyle(FONT_SIZE_SMALL) : smallBtnStyle,
+                GUILayout.Width(SMALL_BUTTON_WIDTH), GUILayout.Height(SMALL_BUTTON_HEIGHT)))
+            {
+                itemsPerPage = 10;
+                currentPage = 0;
+            }
+            if (GUILayout.Button("20", itemsPerPage == 20 ? CreateButtonStyle(FONT_SIZE_SMALL) : smallBtnStyle,
+                GUILayout.Width(SMALL_BUTTON_WIDTH), GUILayout.Height(SMALL_BUTTON_HEIGHT)))
+            {
+                itemsPerPage = 20;
+                currentPage = 0;
+            }
+            if (GUILayout.Button("50", itemsPerPage == 50 ? CreateButtonStyle(FONT_SIZE_SMALL) : smallBtnStyle,
+                GUILayout.Width(SMALL_BUTTON_WIDTH), GUILayout.Height(SMALL_BUTTON_HEIGHT)))
+            {
+                itemsPerPage = 50;
+                currentPage = 0;
+            }
+
+            GUILayout.FlexibleSpace();
+
+            // Next Page Button
+            GUI.enabled = currentPage < totalPages - 1;
+            if (GUILayout.Button(">", currentPage < totalPages - 1 ? btnStyle : disabledStyle,
+                GUILayout.Width(SMALL_BUTTON_WIDTH), GUILayout.Height(SMALL_BUTTON_HEIGHT)))
+            {
+                currentPage++;
+                itemScrollPosition = Vector2.zero;
+            }
+
+            // Last Page Button
+            if (GUILayout.Button(">>", currentPage < totalPages - 1 ? btnStyle : disabledStyle,
+                GUILayout.Width(SMALL_BUTTON_WIDTH), GUILayout.Height(SMALL_BUTTON_HEIGHT)))
+            {
+                currentPage = totalPages - 1;
+                itemScrollPosition = Vector2.zero;
+            }
+            GUI.enabled = true;
+
+            GUILayout.EndHorizontal();
+        }
         private void PerformSearch()
         {
             searchResults.Clear();
-            
+            currentPage = 0;
+
             if (string.IsNullOrWhiteSpace(searchText))
             {
                 searchResults = allItems.ToList();
@@ -911,35 +1014,30 @@ namespace DuckovCheatGUI
             else
             {
                 string lowerSearch = searchText.ToLower();
-                
+
                 // 先按ID搜索
                 if (int.TryParse(searchText, out int searchId))
                 {
                     searchResults = allItems.Where(i => i.id == searchId).ToList();
                 }
-                
+
                 // 如果ID搜索没结果，按名称搜索
                 if (searchResults.Count == 0)
                 {
                     searchResults = allItems
-                        .Where(i => i.name.ToLower().Contains(lowerSearch) || 
+                        .Where(i => i.name.ToLower().Contains(lowerSearch) ||
                                     i.description.ToLower().Contains(lowerSearch))
                         .ToList();
                 }
             }
-            
-            // 限制结果数量
-            if (searchResults.Count > 100)
-            {
-                searchResults = searchResults.Take(100).ToList();
-            }
+
         }
 
         private void SpawnItemById()
         {
             try
             {
-                if (int.TryParse(itemIdInput, out int itemId) && 
+                if (int.TryParse(itemIdInput, out int itemId) &&
                     int.TryParse(itemCountInput, out int count))
                 {
                     SpawnItem(itemId, count);
@@ -962,10 +1060,10 @@ namespace DuckovCheatGUI
                 if (CheatingManager.Instance != null)
                 {
                     CheatingManager.Instance.CreateItem(itemId, count);
-                    
+
                     var item = allItems.FirstOrDefault(i => i.id == itemId);
                     string name = item != null ? item.name : $"ID:{itemId}";
-                    
+
                     UnityEngine.Debug.Log($"[成功] 生成 {name} x{count}");
                 }
                 else
