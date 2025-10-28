@@ -15,15 +15,17 @@ namespace DuckovCheatGUI
     {
         public static GUIRenderer Renderer;
         public static string CacheFilePath;
+        public static string ConfigFilePath;
         private Harmony harmony;
 
         private void OnEnable()
         {
             UnityEngine.Debug.Log("=================================");
-            UnityEngine.Debug.Log("CheatGUI Mod v0.1.0 已加载！");
+            UnityEngine.Debug.Log("CheatGUI Mod v0.3.0 已加载！");
             
             // 设置缓存文件路径（使用mod目录）
             CacheFilePath = Path.Combine(Application.dataPath, "..", "DuckovCheatGUI", "ItemCache.json");
+            ConfigFilePath = Path.Combine(Application.dataPath, "..", "DuckovCheatGUI", "Config.json");
             
             // 确保目录存在
             string directory = Path.GetDirectoryName(CacheFilePath);
@@ -33,6 +35,7 @@ namespace DuckovCheatGUI
             }
             
             UnityEngine.Debug.Log($"缓存文件: {CacheFilePath}");
+            UnityEngine.Debug.Log($"配置文件: {ConfigFilePath}");
             UnityEngine.Debug.Log("=================================");
 
             try
@@ -112,6 +115,14 @@ namespace DuckovCheatGUI
         
         // 传送功能
         private bool teleportEnabled = false;
+        
+        // UI缩放相关 ✨ NEW
+        private float uiScale = 1.0f;
+        private const float MIN_SCALE = 0.5f;
+        private const float MAX_SCALE = 2.0f;
+        private const float SCALE_STEP = 0.1f;
+        private float baseWindowWidth = 750f;
+        private float baseWindowHeight = 700f;
 
         private void Update()
         {
@@ -131,11 +142,12 @@ namespace DuckovCheatGUI
                 Cursor.lockState = CursorLockMode.None;
                 Cursor.visible = true;
                 
-                // 首次打开时加载缓存
+                // 首次打开时加载缓存和配置
                 if (!itemsLoaded)
                 {
                     LoadItemsFromCache();
                 }
+                LoadConfig();
                 
                 UnityEngine.Debug.Log("[菜单] 菜单打开");
             }
@@ -143,6 +155,70 @@ namespace DuckovCheatGUI
             {
                 UnityEngine.Debug.Log("[菜单] 菜单关闭");
             }
+        }
+
+        // 加载配置 ✨ NEW
+        private void LoadConfig()
+        {
+            try
+            {
+                if (File.Exists(ModBehaviour.ConfigFilePath))
+                {
+                    string json = File.ReadAllText(ModBehaviour.ConfigFilePath);
+                    var config = JsonConvert.DeserializeObject<GUIConfig>(json);
+                    
+                    uiScale = Mathf.Clamp(config.UIScale, MIN_SCALE, MAX_SCALE);
+                    ApplyScale();
+                    
+                    UnityEngine.Debug.Log($"[配置] 已加载 UI缩放: {uiScale:F1}x");
+                }
+            }
+            catch (Exception e)
+            {
+                UnityEngine.Debug.LogWarning($"加载配置失败: {e.Message}");
+            }
+        }
+
+        // 保存配置 ✨ NEW
+        private void SaveConfig()
+        {
+            try
+            {
+                var config = new GUIConfig
+                {
+                    UIScale = uiScale
+                };
+                
+                string json = JsonConvert.SerializeObject(config, Formatting.Indented);
+                File.WriteAllText(ModBehaviour.ConfigFilePath, json);
+                
+                UnityEngine.Debug.Log($"[配置] 已保存 UI缩放: {uiScale:F1}x");
+            }
+            catch (Exception e)
+            {
+                UnityEngine.Debug.LogError($"保存配置失败: {e.Message}");
+            }
+        }
+
+        // 应用缩放 ✨ NEW
+        private void ApplyScale()
+        {
+            windowRect.width = baseWindowWidth * uiScale;
+            windowRect.height = baseWindowHeight * uiScale;
+            
+            // 确保窗口不超出屏幕
+            if (windowRect.xMax > Screen.width)
+            {
+                windowRect.x = Screen.width - windowRect.width;
+            }
+            if (windowRect.yMax > Screen.height)
+            {
+                windowRect.y = Screen.height - windowRect.height;
+            }
+            
+            // 确保窗口在屏幕内
+            windowRect.x = Mathf.Max(0, windowRect.x);
+            windowRect.y = Mathf.Max(0, windowRect.y);
         }
 
         // 从缓存加载物品
@@ -175,7 +251,7 @@ namespace DuckovCheatGUI
             }
         }
 
-        // 扫描并保存到缓存
+        // 扫描并保存到缓存（增强版 - 支持MOD物品）
         private void ScanAndCacheItems()
         {
             isScanning = true;
@@ -183,43 +259,166 @@ namespace DuckovCheatGUI
             
             try
             {
-                UnityEngine.Debug.Log("[扫描] 扫描游戏物品...");
-                
-                Item[] allItemComponents = Resources.FindObjectsOfTypeAll<Item>();
-                UnityEngine.Debug.Log($"找到 {allItemComponents.Length} 个 Item 组件");
+                UnityEngine.Debug.Log("[扫描] 开始扫描游戏物品...");
                 
                 HashSet<int> addedIds = new HashSet<int>();
+                int mainGameCount = 0;
+                int modItemCount = 0;
                 
-                foreach (Item item in allItemComponents)
+                // 方法1: 从 ItemAssetsCollection 扫描主游戏物品
+                try
                 {
-                    try
+                    if (ItemAssetsCollection.Instance != null)
                     {
-                        // 跳过场景实例
-                        if (item.gameObject.scene.name != null)
-                            continue;
+                        var allItemEntries = ItemAssetsCollection.Instance.entries;
+                        UnityEngine.Debug.Log($"[主游戏] 找到 {allItemEntries.Count} 个物品条目");
                         
-                        int typeId = item.TypeID;
-                        
-                        if (addedIds.Contains(typeId))
-                            continue;
-                        
-                        addedIds.Add(typeId);
-                        
-                        ItemInfo info = new ItemInfo
+                        foreach (var itemEntry in allItemEntries)
                         {
-                            id = typeId,
-                            name = item.DisplayName ?? $"物品{typeId}",
-                            description = item.Description ?? "",
-                            value = item.Value,
-                            maxStack = item.MaxStackCount,
-                            weight = item.UnitSelfWeight
-                        };
-                        
-                        allItems.Add(info);
+                            try
+                            {
+                                if (itemEntry.prefab != null)
+                                {
+                                    int typeId = itemEntry.typeID;
+                                    
+                                    if (addedIds.Contains(typeId))
+                                        continue;
+                                    
+                                    addedIds.Add(typeId);
+                                    
+                                    ItemInfo info = new ItemInfo
+                                    {
+                                        id = typeId,
+                                        name = itemEntry.prefab.DisplayName ?? $"物品{typeId}",
+                                        description = itemEntry.prefab.Description ?? "",
+                                        value = itemEntry.prefab.Value,
+                                        maxStack = itemEntry.prefab.MaxStackCount,
+                                        weight = itemEntry.prefab.UnitSelfWeight,
+                                        isMod = false
+                                    };
+                                    
+                                    allItems.Add(info);
+                                    mainGameCount++;
+                                }
+                            }
+                            catch (Exception e)
+                            {
+                                UnityEngine.Debug.LogWarning($"读取主游戏物品失败: {e.Message}");
+                            }
+                        }
                     }
-                    catch (Exception e)
+                }
+                catch (Exception e)
+                {
+                    UnityEngine.Debug.LogError($"扫描主游戏物品失败: {e}");
+                }
+                
+                // 方法2: 通过反射从 dynamicDic 扫描MOD物品
+                try
+                {
+                    UnityEngine.Debug.Log("[MOD] 开始扫描MOD物品...");
+                    
+                    var dynamicDicField = typeof(ItemAssetsCollection).GetField("dynamicDic", 
+                        BindingFlags.NonPublic | BindingFlags.Static);
+                    
+                    if (dynamicDicField != null)
                     {
-                        UnityEngine.Debug.LogWarning($"读取物品失败: {e.Message}");
+                        var dynamicDic = dynamicDicField.GetValue(null) as Dictionary<int, ItemAssetsCollection.DynamicEntry>;
+                        
+                        if (dynamicDic != null && dynamicDic.Count > 0)
+                        {
+                            UnityEngine.Debug.Log($"[MOD] 找到 {dynamicDic.Count} 个MOD物品条目");
+                            
+                            foreach (var kvp in dynamicDic)
+                            {
+                                try
+                                {
+                                    int modItemTypeId = kvp.Key;
+                                    ItemAssetsCollection.DynamicEntry modItemEntry = kvp.Value;
+                                    
+                                    if (modItemEntry != null && modItemEntry.prefab != null)
+                                    {
+                                        if (addedIds.Contains(modItemTypeId))
+                                            continue;
+                                        
+                                        addedIds.Add(modItemTypeId);
+                                        
+                                        ItemInfo info = new ItemInfo
+                                        {
+                                            id = modItemTypeId,
+                                            name = "[MOD] " + (modItemEntry.prefab.DisplayName ?? $"MOD物品{modItemTypeId}"),
+                                            description = modItemEntry.prefab.Description ?? "",
+                                            value = modItemEntry.prefab.Value,
+                                            maxStack = modItemEntry.prefab.MaxStackCount,
+                                            weight = modItemEntry.prefab.UnitSelfWeight,
+                                            isMod = true
+                                        };
+                                        
+                                        allItems.Add(info);
+                                        modItemCount++;
+                                    }
+                                }
+                                catch (Exception e)
+                                {
+                                    UnityEngine.Debug.LogWarning($"读取MOD物品失败 (ID:{kvp.Key}): {e.Message}");
+                                }
+                            }
+                        }
+                        else
+                        {
+                            UnityEngine.Debug.Log("[MOD] 未找到MOD物品或dynamicDic为空");
+                        }
+                    }
+                    else
+                    {
+                        UnityEngine.Debug.LogWarning("[MOD] 无法通过反射获取 ItemAssetsCollection.dynamicDic 字段");
+                    }
+                }
+                catch (Exception e)
+                {
+                    UnityEngine.Debug.LogError($"扫描MOD物品失败: {e}");
+                }
+                
+                // 方法3: 备用方法 - 使用 Resources.FindObjectsOfTypeAll (可能找不到所有物品)
+                if (allItems.Count == 0)
+                {
+                    UnityEngine.Debug.Log("[备用] 使用Resources.FindObjectsOfTypeAll扫描...");
+                    
+                    Item[] allItemComponents = Resources.FindObjectsOfTypeAll<Item>();
+                    UnityEngine.Debug.Log($"[备用] 找到 {allItemComponents.Length} 个 Item 组件");
+                    
+                    foreach (Item item in allItemComponents)
+                    {
+                        try
+                        {
+                            // 跳过场景实例
+                            if (item.gameObject.scene.name != null)
+                                continue;
+                            
+                            int typeId = item.TypeID;
+                            
+                            if (addedIds.Contains(typeId))
+                                continue;
+                            
+                            addedIds.Add(typeId);
+                            
+                            ItemInfo info = new ItemInfo
+                            {
+                                id = typeId,
+                                name = item.DisplayName ?? $"物品{typeId}",
+                                description = item.Description ?? "",
+                                value = item.Value,
+                                maxStack = item.MaxStackCount,
+                                weight = item.UnitSelfWeight,
+                                isMod = false
+                            };
+                            
+                            allItems.Add(info);
+                        }
+                        catch (Exception e)
+                        {
+                            UnityEngine.Debug.LogWarning($"备用方法读取物品失败: {e.Message}");
+                        }
                     }
                 }
                 
@@ -229,7 +428,13 @@ namespace DuckovCheatGUI
                 // 保存到缓存
                 SaveItemsToCache();
                 
-                UnityEngine.Debug.Log($"[成功] 扫描完成！共 {allItems.Count} 个物品");
+                UnityEngine.Debug.Log("=================================");
+                UnityEngine.Debug.Log($"[成功] 扫描完成！");
+                UnityEngine.Debug.Log($"主游戏物品: {mainGameCount} 个");
+                UnityEngine.Debug.Log($"MOD物品: {modItemCount} 个");
+                UnityEngine.Debug.Log($"总计: {allItems.Count} 个物品");
+                UnityEngine.Debug.Log("=================================");
+                
                 itemsLoaded = true;
             }
             catch (Exception e)
@@ -269,7 +474,26 @@ namespace DuckovCheatGUI
         {
             if (!showWindow) return;
             
-            windowRect = GUILayout.Window(123456, windowRect, DrawWindow, "作弊菜单 v0.1.0");
+            // 应用UI缩放 ✨ NEW
+            Matrix4x4 originalMatrix = GUI.matrix;
+            GUI.matrix = Matrix4x4.Scale(new Vector3(uiScale, uiScale, 1));
+            
+            // 调整窗口矩形以适应缩放
+            Rect scaledRect = new Rect(
+                windowRect.x / uiScale,
+                windowRect.y / uiScale,
+                baseWindowWidth,
+                baseWindowHeight
+            );
+            
+            scaledRect = GUILayout.Window(123456, scaledRect, DrawWindow, $"作弊菜单 v0.3.0 [UI缩放: {uiScale:F1}x]");
+            
+            // 保存缩放后的位置
+            windowRect.x = scaledRect.x * uiScale;
+            windowRect.y = scaledRect.y * uiScale;
+            
+            // 恢复原始矩阵
+            GUI.matrix = originalMatrix;
         }
 
         private void DrawWindow(int windowID)
@@ -305,7 +529,7 @@ namespace DuckovCheatGUI
             
             GUILayout.EndVertical();
             
-            GUI.DragWindow(new Rect(0, 0, windowRect.width, 20));
+            GUI.DragWindow(new Rect(0, 0, baseWindowWidth, 20));
         }
 
         private void DrawItemSpawnTab()
@@ -449,9 +673,87 @@ namespace DuckovCheatGUI
             GUILayout.Space(10);
             
             GUILayout.Label($"已加载物品: {allItems.Count} 个");
+            GUILayout.Label($"主游戏物品: {allItems.Count(i => !i.isMod)} 个");
+            GUILayout.Label($"MOD物品: {allItems.Count(i => i.isMod)} 个");
             GUILayout.Label($"缓存时间: {(cacheTime != DateTime.MinValue ? cacheTime.ToString("yyyy-MM-dd HH:mm:ss") : "无")}");
             GUILayout.Label($"缓存文件: {Path.GetFileName(ModBehaviour.CacheFilePath)}");
             GUILayout.Label($"FPS: {(int)(1f / Time.deltaTime)}");
+            
+            GUILayout.Space(15);
+            
+            // UI缩放控制 ✨ NEW
+            GUILayout.Label("=== UI缩放 ===", GUI.skin.box);
+            
+            GUILayout.BeginHorizontal();
+            GUILayout.Label($"当前缩放: {uiScale:F1}x", GUILayout.Width(120));
+            
+            if (GUILayout.Button("-", GUILayout.Width(40), GUILayout.Height(35)))
+            {
+                uiScale = Mathf.Max(MIN_SCALE, uiScale - SCALE_STEP);
+                ApplyScale();
+                SaveConfig();
+                UnityEngine.Debug.Log($"[UI] 缩放调整为: {uiScale:F1}x");
+            }
+            
+            // 滑块
+            float newScale = GUILayout.HorizontalSlider(uiScale, MIN_SCALE, MAX_SCALE, GUILayout.Width(200));
+            if (Mathf.Abs(newScale - uiScale) > 0.01f)
+            {
+                uiScale = newScale;
+                ApplyScale();
+                SaveConfig();
+            }
+            
+            if (GUILayout.Button("+", GUILayout.Width(40), GUILayout.Height(35)))
+            {
+                uiScale = Mathf.Min(MAX_SCALE, uiScale + SCALE_STEP);
+                ApplyScale();
+                SaveConfig();
+                UnityEngine.Debug.Log($"[UI] 缩放调整为: {uiScale:F1}x");
+            }
+            GUILayout.EndHorizontal();
+            
+            GUILayout.Space(5);
+            
+            // 快捷缩放按钮
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("50%", GUILayout.Height(30)))
+            {
+                uiScale = 0.5f;
+                ApplyScale();
+                SaveConfig();
+            }
+            if (GUILayout.Button("75%", GUILayout.Height(30)))
+            {
+                uiScale = 0.75f;
+                ApplyScale();
+                SaveConfig();
+            }
+            if (GUILayout.Button("100%", GUILayout.Height(30)))
+            {
+                uiScale = 1.0f;
+                ApplyScale();
+                SaveConfig();
+            }
+            if (GUILayout.Button("125%", GUILayout.Height(30)))
+            {
+                uiScale = 1.25f;
+                ApplyScale();
+                SaveConfig();
+            }
+            if (GUILayout.Button("150%", GUILayout.Height(30)))
+            {
+                uiScale = 1.5f;
+                ApplyScale();
+                SaveConfig();
+            }
+            if (GUILayout.Button("200%", GUILayout.Height(30)))
+            {
+                uiScale = 2.0f;
+                ApplyScale();
+                SaveConfig();
+            }
+            GUILayout.EndHorizontal();
             
             GUILayout.Space(15);
             
@@ -505,6 +807,18 @@ namespace DuckovCheatGUI
             {
                 UnityEngine.Debug.Log("=== 物品列表（前20个）===");
                 foreach (var item in allItems.Take(20))
+                {
+                    UnityEngine.Debug.Log($"ID:{item.id} | {item.name} | MOD:{item.isMod}");
+                }
+            }
+            
+            GUILayout.Space(5);
+            
+            if (GUILayout.Button("输出所有MOD物品到日志", GUILayout.Height(40)))
+            {
+                var modItems = allItems.Where(i => i.isMod).ToList();
+                UnityEngine.Debug.Log($"=== MOD物品列表（共{modItems.Count}个）===");
+                foreach (var item in modItems)
                 {
                     UnityEngine.Debug.Log($"ID:{item.id} | {item.name}");
                 }
@@ -641,6 +955,7 @@ namespace DuckovCheatGUI
         public int value;
         public int maxStack;
         public float weight;
+        public bool isMod;
     }
 
     // 缓存结构
@@ -649,5 +964,12 @@ namespace DuckovCheatGUI
     {
         public List<ItemInfo> Items;
         public DateTime CacheTime;
+    }
+
+    // 配置结构 ✨ NEW
+    [Serializable]
+    public class GUIConfig
+    {
+        public float UIScale = 1.0f;
     }
 }
