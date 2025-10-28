@@ -103,3 +103,6 @@ UpgradeLog*.htm
 
 # Game-specific
 DuckovCheatGUI_ItemCache.json
+
+#mac
+.DS_Store
