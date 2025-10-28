@@ -86,7 +86,7 @@ namespace DuckovCheatGUI
                 }
             }
             
-            if (Input.GetKeyDown(KeyCode.Home))
+            if (Input.GetKeyDown(KeyCode.Home) || Input.GetKeyDown(KeyCode.Backslash))
             {
                 ModBehaviour.Renderer?.ToggleWindow();
             }
@@ -124,6 +124,10 @@ namespace DuckovCheatGUI
         private float baseWindowWidth = 750f;
         private float baseWindowHeight = 700f;
 
+        // 背景纹理 ✨ NEW
+        private Texture2D backgroundTexture;
+        private GUISkin customSkin;
+
         private void Update()
         {
             // 检测鼠标中键按下，且传送功能已启用
@@ -136,25 +140,39 @@ namespace DuckovCheatGUI
         public void ToggleWindow()
         {
             showWindow = !showWindow;
-            
+
             if (showWindow)
             {
                 Cursor.lockState = CursorLockMode.None;
                 Cursor.visible = true;
-                
+
+                // 初始化背景纹理（如果还没有）
+                if (backgroundTexture == null)
+                {
+                    InitializeBackground();
+                }
+
                 // 首次打开时加载缓存和配置
                 if (!itemsLoaded)
                 {
                     LoadItemsFromCache();
                 }
                 LoadConfig();
-                
+
                 UnityEngine.Debug.Log("[菜单] 菜单打开");
             }
             else
             {
                 UnityEngine.Debug.Log("[菜单] 菜单关闭");
             }
+        }
+
+        // 初始化背景纹理 ✨ NEW
+        private void InitializeBackground()
+        {
+            backgroundTexture = new Texture2D(1, 1, TextureFormat.ARGB32, false);
+            backgroundTexture.SetPixel(0, 0, new Color(0.15f, 0.15f, 0.15f, 1f)); // 深灰色，完全不透明
+            backgroundTexture.Apply();
         }
 
         // 加载配置 ✨ NEW
@@ -473,46 +491,57 @@ namespace DuckovCheatGUI
         private void OnGUI()
         {
             if (!showWindow) return;
-            
-            // 应用UI缩放 ✨ NEW
+
+            // 应用UI缩放 ✨ IMPROVED
             Matrix4x4 originalMatrix = GUI.matrix;
+
+            // 仅在缩放矩阵中计算窗口，不改变windowRect
             GUI.matrix = Matrix4x4.Scale(new Vector3(uiScale, uiScale, 1));
-            
-            // 调整窗口矩形以适应缩放
-            Rect scaledRect = new Rect(
-                windowRect.x / uiScale,
-                windowRect.y / uiScale,
-                baseWindowWidth,
-                baseWindowHeight
-            );
-            
-            scaledRect = GUILayout.Window(123456, scaledRect, DrawWindow, $"作弊菜单 v0.3.0 [UI缩放: {uiScale:F1}x]");
-            
-            // 保存缩放后的位置
-            windowRect.x = scaledRect.x * uiScale;
-            windowRect.y = scaledRect.y * uiScale;
-            
+
+            // 直接使用windowRect，不进行任何坐标转换
+            Rect scaledRect = GUILayout.Window(123456, windowRect, DrawWindow, $"作弊菜单 v0.3.0 [UI缩放: {uiScale:F1}x]");
+
+            // 只保存窗口位置改变（不涉及缩放计算）
+            windowRect = scaledRect;
+
             // 恢复原始矩阵
             GUI.matrix = originalMatrix;
         }
 
         private void DrawWindow(int windowID)
         {
+            // 应用背景纹理 ✨ NEW
+            if (backgroundTexture != null)
+            {
+                GUI.DrawTexture(new Rect(0, 0, windowRect.width, windowRect.height), backgroundTexture);
+            }
+
             GUILayout.BeginVertical();
-            
-            // 标签页
+
+            // 标签页 ✨ IMPROVED
             GUILayout.BeginHorizontal();
             for (int i = 0; i < tabs.Length; i++)
             {
-                if (GUILayout.Toggle(currentTab == i, tabs[i], GUI.skin.button, GUILayout.Height(35)))
+                var tabStyle = new GUIStyle(GUI.skin.button);
+                if (currentTab == i)
+                {
+                    tabStyle.normal.textColor = Color.green;
+                    tabStyle.normal.background = Texture2D.whiteTexture;
+                }
+                else
+                {
+                    tabStyle.normal.textColor = Color.white;
+                }
+
+                if (GUILayout.Toggle(currentTab == i, tabs[i], tabStyle, GUILayout.Height(35)))
                 {
                     currentTab = i;
                 }
             }
             GUILayout.EndHorizontal();
-            
-            GUILayout.Space(10);
-            
+
+            GUILayout.Space(12);
+
             // 显示对应标签页
             switch (currentTab)
             {
@@ -526,33 +555,35 @@ namespace DuckovCheatGUI
                     DrawSettingsTab();
                     break;
             }
-            
+
             GUILayout.EndVertical();
-            
+
             GUI.DragWindow(new Rect(0, 0, baseWindowWidth, 20));
         }
 
         private void DrawItemSpawnTab()
         {
             GUILayout.Label("=== 物品生成 ===", GUI.skin.box);
-            
-            GUILayout.Space(5);
-            
+
+            GUILayout.Space(8);
+
             // 状态信息
             if (isScanning)
             {
-                GUILayout.Label("[扫描中...] 正在扫描物品，请稍候", GUI.skin.box);
+                var style = new GUIStyle(GUI.skin.box) { normal = { textColor = Color.yellow } };
+                GUILayout.Label("[扫描中...] 正在扫描物品，请稍候", style);
             }
             else if (!itemsLoaded)
             {
-                GUILayout.Label("[未加载] 点击设置标签页扫描物品", GUI.skin.box);
+                var style = new GUIStyle(GUI.skin.box) { normal = { textColor = Color.cyan } };
+                GUILayout.Label("[未加载] 点击设置标签页扫描物品", style);
             }
-            
-            GUILayout.Space(5);
-            
+
+            GUILayout.Space(8);
+
             // ID直接生成
             GUILayout.BeginHorizontal();
-            GUILayout.Label("物品ID:", GUILayout.Width(60));
+            GUILayout.Label("物品ID:", GUILayout.Width(70));
             itemIdInput = GUILayout.TextField(itemIdInput, GUILayout.Width(100));
             GUILayout.Label("数量:", GUILayout.Width(50));
             itemCountInput = GUILayout.TextField(itemCountInput, GUILayout.Width(80));
@@ -561,9 +592,9 @@ namespace DuckovCheatGUI
                 SpawnItemById();
             }
             GUILayout.EndHorizontal();
-            
+
             GUILayout.Space(10);
-            
+
             // 搜索
             GUILayout.BeginHorizontal();
             GUILayout.Label("搜索:", GUILayout.Width(50));
@@ -574,38 +605,50 @@ namespace DuckovCheatGUI
                 PerformSearch();
             }
             GUILayout.EndHorizontal();
-            
-            GUILayout.Space(5);
-            
+
+            GUILayout.Space(8);
+
             // 物品列表
             if (itemsLoaded)
             {
-                GUILayout.Label($"搜索结果: {searchResults.Count} 个物品", GUI.skin.box);
-                
+                var countStyle = new GUIStyle(GUI.skin.box) { normal = { textColor = Color.green } };
+                GUILayout.Label($"搜索结果: {searchResults.Count} 个物品", countStyle);
+
                 itemScrollPosition = GUILayout.BeginScrollView(itemScrollPosition, GUILayout.Height(450));
-                
+
                 foreach (var item in searchResults)
                 {
                     GUILayout.BeginVertical(GUI.skin.box);
-                    
+
                     // 第一行：ID和名称
                     GUILayout.BeginHorizontal();
-                    GUILayout.Label($"[{item.id}]", GUILayout.Width(60));
-                    GUILayout.Label(item.name, GUILayout.Width(300));
+                    var idStyle = new GUIStyle(GUI.skin.label) { normal = { textColor = Color.cyan } };
+                    GUILayout.Label($"[{item.id}]", idStyle, GUILayout.Width(70));
+
+                    var nameStyle = new GUIStyle(GUI.skin.label) { normal = { textColor = Color.white } };
+                    GUILayout.Label(item.name, nameStyle);
                     GUILayout.EndHorizontal();
-                    
-                    // 第二行：描述
+
+                    // 第二行：描述（带宽度约束）
                     if (!string.IsNullOrEmpty(item.description))
                     {
-                        GUILayout.Label(item.description, GUI.skin.box);
+                        var descStyle = new GUIStyle(GUI.skin.box)
+                        {
+                            normal = { textColor = new Color(0.85f, 0.85f, 0.85f) },
+                            wordWrap = true
+                        };
+                        float descMaxWidth = (baseWindowWidth * uiScale - 30) / uiScale; // 留出左右边距
+                        GUILayout.Label(item.description, descStyle, GUILayout.MaxWidth(descMaxWidth));
                     }
-                    
+
                     // 第三行：属性和按钮
                     GUILayout.BeginHorizontal();
-                    GUILayout.Label($"价值:{item.value} | 重量:{item.weight:F2}kg | 堆叠:{item.maxStack}", GUILayout.Width(250));
-                    
+                    var propStyle = new GUIStyle(GUI.skin.label) { normal = { textColor = new Color(0.9f, 0.9f, 0.7f) } };
+                    float statsMaxWidth = (baseWindowWidth * uiScale - 300) / uiScale;
+                    GUILayout.Label($"价值:{item.value} | 重量:{item.weight:F2}kg | 堆叠:{item.maxStack}", propStyle, GUILayout.MaxWidth(statsMaxWidth));
+
                     GUILayout.FlexibleSpace();
-                    
+
                     if (GUILayout.Button("x1", GUILayout.Width(50), GUILayout.Height(25)))
                     {
                         SpawnItem(item.id, 1);
@@ -618,16 +661,16 @@ namespace DuckovCheatGUI
                     {
                         SpawnItem(item.id, 99);
                     }
-                    if (GUILayout.Button($"x{item.maxStack}", GUILayout.Width(60), GUILayout.Height(25)))
+                    if (GUILayout.Button($"x{item.maxStack}", GUILayout.Width(70), GUILayout.Height(25)))
                     {
                         SpawnItem(item.id, item.maxStack);
                     }
                     GUILayout.EndHorizontal();
-                    
+
                     GUILayout.EndVertical();
-                    GUILayout.Space(3);
+                    GUILayout.Space(4);
                 }
-                
+
                 GUILayout.EndScrollView();
             }
         }
@@ -635,100 +678,94 @@ namespace DuckovCheatGUI
         private void DrawPlayerCheatTab()
         {
             GUILayout.Label("=== 玩家作弊 ===", GUI.skin.box);
-            
-            GUILayout.Space(10);
-            
-            if (GUILayout.Button("切换无敌模式", GUILayout.Height(50)))
+
+            GUILayout.Space(15);
+
+            var invincibleStyle = new GUIStyle(GUI.skin.button)
+            {
+                fontSize = 16,
+                fixedHeight = 50
+            };
+
+            if (GUILayout.Button("⚡ 切换无敌模式", invincibleStyle, GUILayout.Height(50)))
             {
                 ToggleInvincible();
             }
-            
-            GUILayout.Space(5);
-            
+
+            GUILayout.Space(8);
+
             // 传送开关
-            string teleportButtonText = teleportEnabled ? "传送开关: 已开启 (鼠标中键传送)" : "传送开关: 已关闭";
-            if (GUILayout.Button(teleportButtonText, GUILayout.Height(50)))
+            string teleportButtonText = teleportEnabled
+                ? "✓ 传送开关: 已开启 (鼠标中键传送)"
+                : "✗ 传送开关: 已关闭";
+
+            var teleportStyle = new GUIStyle(GUI.skin.button)
+            {
+                normal = { textColor = teleportEnabled ? Color.green : Color.red }
+            };
+
+            if (GUILayout.Button(teleportButtonText, teleportStyle, GUILayout.Height(50)))
             {
                 teleportEnabled = !teleportEnabled;
                 UnityEngine.Debug.Log($"[成功] 传送功能 {(teleportEnabled ? "已开启" : "已关闭")}");
             }
-            
-            GUILayout.Space(5);
-            
+
+            GUILayout.Space(8);
+
             // 如果传送开启，显示提示信息
             if (teleportEnabled)
             {
-                GUILayout.Label("[提示] 按下鼠标中键（滚轮）传送到鼠标指向位置", GUI.skin.box);
+                var tipsStyle = new GUIStyle(GUI.skin.box)
+                {
+                    normal = { textColor = Color.yellow },
+                    wordWrap = true
+                };
+                GUILayout.Label("[提示] 按下鼠标中键（滚轮）传送到鼠标指向位置", tipsStyle);
             }
-            
-            GUILayout.Space(10);
-            
-            GUILayout.Label("[警告] 提示: 某些功能需要在游戏场景中才能使用", GUI.skin.box);
+
+            GUILayout.Space(15);
+
+            var warningStyle = new GUIStyle(GUI.skin.box)
+            {
+                normal = { textColor = new Color(1f, 0.8f, 0.2f) },
+                wordWrap = true
+            };
+            GUILayout.Label("[警告] 某些功能需要在游戏场景中才能使用", warningStyle);
         }
 
         private void DrawSettingsTab()
         {
             GUILayout.Label("=== 设置 ===", GUI.skin.box);
-            
+
             GUILayout.Space(10);
-            
-            GUILayout.Label($"已加载物品: {allItems.Count} 个");
-            GUILayout.Label($"主游戏物品: {allItems.Count(i => !i.isMod)} 个");
-            GUILayout.Label($"MOD物品: {allItems.Count(i => i.isMod)} 个");
-            GUILayout.Label($"缓存时间: {(cacheTime != DateTime.MinValue ? cacheTime.ToString("yyyy-MM-dd HH:mm:ss") : "无")}");
-            GUILayout.Label($"缓存文件: {Path.GetFileName(ModBehaviour.CacheFilePath)}");
-            GUILayout.Label($"FPS: {(int)(1f / Time.deltaTime)}");
-            
-            GUILayout.Space(15);
-            
-            // UI缩放控制 ✨ NEW
+
+            // 统计信息区域
+            GUILayout.BeginVertical(GUI.skin.box);
+            var statStyle = new GUIStyle(GUI.skin.label) { normal = { textColor = Color.cyan } };
+            GUILayout.Label($"已加载物品: {allItems.Count} 个", statStyle);
+
+            var mainGameCount = allItems.Count(i => !i.isMod);
+            var modCount = allItems.Count(i => i.isMod);
+            GUILayout.Label($"主游戏物品: {mainGameCount} 个 | MOD物品: {modCount} 个", statStyle);
+            GUILayout.Label($"缓存时间: {(cacheTime != DateTime.MinValue ? cacheTime.ToString("yyyy-MM-dd HH:mm:ss") : "无")}", statStyle);
+            GUILayout.Label($"FPS: {(int)(1f / Time.deltaTime)}", statStyle);
+            GUILayout.EndVertical();
+
+            GUILayout.Space(12);
+
+            // UI缩放控制 ✨ IMPROVED
             GUILayout.Label("=== UI缩放 ===", GUI.skin.box);
-            
+
             GUILayout.BeginHorizontal();
-            GUILayout.Label($"当前缩放: {uiScale:F1}x", GUILayout.Width(120));
-            
-            if (GUILayout.Button("-", GUILayout.Width(40), GUILayout.Height(35)))
-            {
-                uiScale = Mathf.Max(MIN_SCALE, uiScale - SCALE_STEP);
-                ApplyScale();
-                SaveConfig();
-                UnityEngine.Debug.Log($"[UI] 缩放调整为: {uiScale:F1}x");
-            }
-            
-            // 滑块
-            float newScale = GUILayout.HorizontalSlider(uiScale, MIN_SCALE, MAX_SCALE, GUILayout.Width(200));
-            if (Mathf.Abs(newScale - uiScale) > 0.01f)
-            {
-                uiScale = newScale;
-                ApplyScale();
-                SaveConfig();
-            }
-            
-            if (GUILayout.Button("+", GUILayout.Width(40), GUILayout.Height(35)))
-            {
-                uiScale = Mathf.Min(MAX_SCALE, uiScale + SCALE_STEP);
-                ApplyScale();
-                SaveConfig();
-                UnityEngine.Debug.Log($"[UI] 缩放调整为: {uiScale:F1}x");
-            }
+            var scaleLabel = new GUIStyle(GUI.skin.label) { normal = { textColor = Color.green } };
+            GUILayout.Label($"当前缩放: {uiScale:F1}x", scaleLabel);
+            GUILayout.FlexibleSpace();
             GUILayout.EndHorizontal();
-            
-            GUILayout.Space(5);
-            
+
+            GUILayout.Space(8);
+
             // 快捷缩放按钮
             GUILayout.BeginHorizontal();
-            if (GUILayout.Button("50%", GUILayout.Height(30)))
-            {
-                uiScale = 0.5f;
-                ApplyScale();
-                SaveConfig();
-            }
-            if (GUILayout.Button("75%", GUILayout.Height(30)))
-            {
-                uiScale = 0.75f;
-                ApplyScale();
-                SaveConfig();
-            }
             if (GUILayout.Button("100%", GUILayout.Height(30)))
             {
                 uiScale = 1.0f;
@@ -754,19 +791,19 @@ namespace DuckovCheatGUI
                 SaveConfig();
             }
             GUILayout.EndHorizontal();
-            
-            GUILayout.Space(15);
-            
+
+            GUILayout.Space(12);
+
             GUILayout.Label("=== 缓存管理 ===", GUI.skin.box);
-            
-            if (GUILayout.Button("重新扫描物品（更新缓存）", GUILayout.Height(45)))
+
+            if (GUILayout.Button("🔄 重新扫描物品（更新缓存）", GUILayout.Height(45)))
             {
                 ScanAndCacheItems();
             }
-            
+
             GUILayout.Space(5);
-            
-            if (GUILayout.Button("删除缓存文件", GUILayout.Height(45)))
+
+            if (GUILayout.Button("🗑️ 删除缓存文件", GUILayout.Height(40)))
             {
                 try
                 {
@@ -784,10 +821,10 @@ namespace DuckovCheatGUI
                     UnityEngine.Debug.LogError($"删除失败: {e.Message}");
                 }
             }
-            
+
             GUILayout.Space(5);
-            
-            if (GUILayout.Button("打开缓存文件夹", GUILayout.Height(45)))
+
+            if (GUILayout.Button("📁 打开缓存文件夹", GUILayout.Height(40)))
             {
                 try
                 {
@@ -798,12 +835,12 @@ namespace DuckovCheatGUI
                     UnityEngine.Debug.LogError($"打开失败: {e.Message}");
                 }
             }
-            
-            GUILayout.Space(15);
-            
+
+            GUILayout.Space(12);
+
             GUILayout.Label("=== 调试 ===", GUI.skin.box);
-            
-            if (GUILayout.Button("输出前20个物品到日志", GUILayout.Height(40)))
+
+            if (GUILayout.Button("📋 输出前20个物品到日志", GUILayout.Height(40)))
             {
                 UnityEngine.Debug.Log("=== 物品列表（前20个）===");
                 foreach (var item in allItems.Take(20))
@@ -811,10 +848,10 @@ namespace DuckovCheatGUI
                     UnityEngine.Debug.Log($"ID:{item.id} | {item.name} | MOD:{item.isMod}");
                 }
             }
-            
+
             GUILayout.Space(5);
-            
-            if (GUILayout.Button("输出所有MOD物品到日志", GUILayout.Height(40)))
+
+            if (GUILayout.Button("📦 输出所有MOD物品到日志", GUILayout.Height(40)))
             {
                 var modItems = allItems.Where(i => i.isMod).ToList();
                 UnityEngine.Debug.Log($"=== MOD物品列表（共{modItems.Count}个）===");
