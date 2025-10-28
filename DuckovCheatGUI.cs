@@ -133,6 +133,17 @@ namespace DuckovCheatGUI
         private readonly Color colorError = new Color(1f, 0.3f, 0.3f);
         private readonly Color colorMuted = new Color(0.7f, 0.7f, 0.7f);
 
+        // ============ UI Dimensions (Uniform) ============
+        private const float STANDARD_BUTTON_HEIGHT = 40f;
+        private const float STANDARD_INPUT_HEIGHT = 40f;
+        private const float STANDARD_BUTTON_WIDTH = 80f;
+        private const float SMALL_BUTTON_WIDTH = 60f;
+        private const float MEDIUM_BUTTON_WIDTH = 100f;
+        private const float LARGE_BUTTON_WIDTH = 130f;
+        private const float TAB_BUTTON_HEIGHT = 50f;
+        private const float SECTION_HEADER_HEIGHT = 35f;
+        private const float STATUS_MESSAGE_HEIGHT = 30f;
+
         private void Update()
         {
             // 检测鼠标中键按下，且传送功能已启用
@@ -512,7 +523,7 @@ namespace DuckovCheatGUI
         private void DrawSectionHeader(string title)
         {
             var style = CreateBoxStyle(17, colorHeader);
-            GUILayout.Label($">> {title}", style, GUILayout.Height(35));
+            GUILayout.Label($">> {title}", style, GUILayout.Height(SECTION_HEADER_HEIGHT));
             GUILayout.Space(5);
         }
 
@@ -571,7 +582,7 @@ namespace DuckovCheatGUI
 
         private void DrawTabNavigation()
         {
-            GUILayout.BeginHorizontal(GUILayout.Height(50));
+            GUILayout.BeginHorizontal(GUILayout.Height(TAB_BUTTON_HEIGHT));
 
             for (int i = 0; i < tabs.Length; i++)
             {
@@ -582,7 +593,7 @@ namespace DuckovCheatGUI
                     normal = { textColor = isActive ? colorSuccess : Color.white }
                 };
 
-                if (GUILayout.Button(tabs[i], style, GUILayout.ExpandWidth(true), GUILayout.Height(50)))
+                if (GUILayout.Button(tabs[i], style, GUILayout.ExpandWidth(true), GUILayout.Height(TAB_BUTTON_HEIGHT)))
                 {
                     currentTab = i;
                 }
@@ -596,12 +607,12 @@ namespace DuckovCheatGUI
             DrawSectionHeader("快速生成");
 
             // Quick Spawn Section
-            GUILayout.BeginHorizontal(GUILayout.Height(40));
+            GUILayout.BeginHorizontal(GUILayout.Height(STANDARD_BUTTON_HEIGHT));
             GUILayout.Label("物品ID:", CreateLabelStyle(14, Color.white), GUILayout.Width(70));
-            itemIdInput = GUILayout.TextField(itemIdInput, GUILayout.Height(35), GUILayout.Width(80));
+            itemIdInput = GUILayout.TextField(itemIdInput, GUILayout.Height(STANDARD_INPUT_HEIGHT), GUILayout.Width(STANDARD_BUTTON_WIDTH));
             GUILayout.Label("数量:", CreateLabelStyle(14, Color.white), GUILayout.Width(50));
-            itemCountInput = GUILayout.TextField(itemCountInput, GUILayout.Height(35), GUILayout.Width(70));
-            if (GUILayout.Button("生成", CreateButtonStyle(14), GUILayout.Width(90), GUILayout.Height(40)))
+            itemCountInput = GUILayout.TextField(itemCountInput, GUILayout.Height(STANDARD_INPUT_HEIGHT), GUILayout.Width(STANDARD_BUTTON_WIDTH));
+            if (GUILayout.Button("生成", CreateButtonStyle(14), GUILayout.Width(MEDIUM_BUTTON_WIDTH), GUILayout.Height(STANDARD_BUTTON_HEIGHT)))
             {
                 SpawnItemById();
             }
@@ -611,9 +622,9 @@ namespace DuckovCheatGUI
             DrawSectionHeader("物品搜索");
 
             // Search Section
-            GUILayout.BeginHorizontal(GUILayout.Height(40));
+            GUILayout.BeginHorizontal(GUILayout.Height(STANDARD_BUTTON_HEIGHT));
             GUILayout.Label("搜索:", CreateLabelStyle(14, Color.white), GUILayout.Width(50));
-            string newSearch = GUILayout.TextField(searchText, GUILayout.Height(35));
+            string newSearch = GUILayout.TextField(searchText, GUILayout.Height(STANDARD_INPUT_HEIGHT));
             if (newSearch != searchText)
             {
                 searchText = newSearch;
@@ -625,15 +636,15 @@ namespace DuckovCheatGUI
             // Status & Results
             if (isScanning)
             {
-                GUILayout.Label("* 正在扫描物品...", CreateBoxStyle(14, colorWarning), GUILayout.Height(30));
+                GUILayout.Label("* 正在扫描物品...", CreateBoxStyle(14, colorWarning), GUILayout.Height(STATUS_MESSAGE_HEIGHT));
             }
             else if (!itemsLoaded)
             {
-                GUILayout.Label("! 未加载 - 请进入设置页面扫描物品", CreateBoxStyle(14, colorError), GUILayout.Height(30));
+                GUILayout.Label("! 未加载 - 请进入设置页面扫描物品", CreateBoxStyle(14, colorError), GUILayout.Height(STATUS_MESSAGE_HEIGHT));
             }
             else
             {
-                GUILayout.Label($"[OK] 找到 {searchResults.Count} 个物品", CreateBoxStyle(14, colorSuccess), GUILayout.Height(30));
+                GUILayout.Label($"[OK] 找到 {searchResults.Count} 个物品", CreateBoxStyle(14, colorSuccess), GUILayout.Height(STATUS_MESSAGE_HEIGHT));
             }
 
             GUILayout.Space(8);
@@ -672,18 +683,18 @@ namespace DuckovCheatGUI
             }
 
             // Properties & Action Buttons
-            GUILayout.BeginHorizontal(GUILayout.Height(35));
+            GUILayout.BeginHorizontal(GUILayout.Height(STANDARD_BUTTON_HEIGHT));
             GUILayout.Label($"Value: {item.value} | Weight: {item.weight:F1}kg | Stack: {item.maxStack}",
                 CreateLabelStyle(12, colorMuted), GUILayout.ExpandWidth(false));
 
             var btnStyle = CreateButtonStyle(12);
-            if (GUILayout.Button("x1", btnStyle, GUILayout.Width(45), GUILayout.Height(35)))
+            if (GUILayout.Button("x1", btnStyle, GUILayout.Width(SMALL_BUTTON_WIDTH), GUILayout.Height(STANDARD_BUTTON_HEIGHT)))
                 SpawnItem(item.id, 1);
-            if (GUILayout.Button("x10", btnStyle, GUILayout.Width(50), GUILayout.Height(35)))
+            if (GUILayout.Button("x10", btnStyle, GUILayout.Width(STANDARD_BUTTON_WIDTH), GUILayout.Height(STANDARD_BUTTON_HEIGHT)))
                 SpawnItem(item.id, 10);
-            if (GUILayout.Button("x99", btnStyle, GUILayout.Width(50), GUILayout.Height(35)))
+            if (GUILayout.Button("x99", btnStyle, GUILayout.Width(STANDARD_BUTTON_WIDTH), GUILayout.Height(STANDARD_BUTTON_HEIGHT)))
                 SpawnItem(item.id, 99);
-            if (GUILayout.Button($"x{item.maxStack}", btnStyle, GUILayout.Width(70), GUILayout.Height(35)))
+            if (GUILayout.Button($"x{item.maxStack}", btnStyle, GUILayout.Width(LARGE_BUTTON_WIDTH), GUILayout.Height(STANDARD_BUTTON_HEIGHT)))
                 SpawnItem(item.id, item.maxStack);
             GUILayout.EndHorizontal();
 
@@ -697,7 +708,7 @@ namespace DuckovCheatGUI
 
             // Invincibility Button
             var invincibleStyle = CreateButtonStyle(16);
-            if (GUILayout.Button("⚡ 无敌模式", invincibleStyle, GUILayout.Height(50)))
+            if (GUILayout.Button("⚡ 无敌模式", invincibleStyle, GUILayout.Height(STANDARD_BUTTON_HEIGHT)))
             {
                 ToggleInvincible();
             }
@@ -717,7 +728,7 @@ namespace DuckovCheatGUI
             else
                 teleportStyle.normal.textColor = colorError;
 
-            if (GUILayout.Button($"🚀 传送到光标位置  [{teleportButtonText}]", teleportStyle, GUILayout.Height(50)))
+            if (GUILayout.Button($"🚀 传送到光标位置  [{teleportButtonText}]", teleportStyle, GUILayout.Height(STANDARD_BUTTON_HEIGHT)))
             {
                 teleportEnabled = !teleportEnabled;
                 UnityEngine.Debug.Log($"[成功] 传送功能 {(teleportEnabled ? "已开启" : "已关闭")}");
@@ -728,7 +739,7 @@ namespace DuckovCheatGUI
                 GUILayout.Space(8);
                 var tipsStyle = CreateBoxStyle(12, colorWarning);
                 tipsStyle.wordWrap = true;
-                GUILayout.Label("💡 按鼠标中键（滚轮）传送到光标指向的位置", tipsStyle, GUILayout.Height(40));
+                GUILayout.Label("💡 按鼠标中键（滚轮）传送到光标指向的位置", tipsStyle, GUILayout.Height(STANDARD_BUTTON_HEIGHT));
             }
 
             GUILayout.Space(15);
@@ -737,7 +748,7 @@ namespace DuckovCheatGUI
             DrawSectionHeader("重要提示");
             var warningStyle = CreateBoxStyle(13, colorWarning);
             warningStyle.wordWrap = true;
-            GUILayout.Label("⚠️ 某些功能需要在游戏场景中才能使用。请确保您在游戏中。", warningStyle, GUILayout.Height(50));
+            GUILayout.Label("⚠️ 某些功能需要在游戏场景中才能使用。请确保您在游戏中。", warningStyle, GUILayout.Height(STANDARD_BUTTON_HEIGHT));
         }
 
         private void DrawSettingsTab()
@@ -762,29 +773,29 @@ namespace DuckovCheatGUI
             // UI Scale Section
             DrawSectionHeader("界面缩放");
 
-            GUILayout.BeginHorizontal(GUILayout.Height(35));
+            GUILayout.BeginHorizontal(GUILayout.Height(STANDARD_BUTTON_HEIGHT));
             GUILayout.Label($"当前: {uiScale:F2}×", CreateLabelStyle(14, colorSuccess), GUILayout.Width(80));
 
             var btnStyle = CreateButtonStyle(13);
-            if (GUILayout.Button("100%", btnStyle, GUILayout.Height(35)))
+            if (GUILayout.Button("100%", btnStyle, GUILayout.Height(STANDARD_BUTTON_HEIGHT)))
             {
                 uiScale = 1.0f;
                 ApplyScale();
                 SaveConfig();
             }
-            if (GUILayout.Button("125%", btnStyle, GUILayout.Height(35)))
+            if (GUILayout.Button("125%", btnStyle, GUILayout.Height(STANDARD_BUTTON_HEIGHT)))
             {
                 uiScale = 1.25f;
                 ApplyScale();
                 SaveConfig();
             }
-            if (GUILayout.Button("150%", btnStyle, GUILayout.Height(35)))
+            if (GUILayout.Button("150%", btnStyle, GUILayout.Height(STANDARD_BUTTON_HEIGHT)))
             {
                 uiScale = 1.5f;
                 ApplyScale();
                 SaveConfig();
             }
-            if (GUILayout.Button("200%", btnStyle, GUILayout.Height(35)))
+            if (GUILayout.Button("200%", btnStyle, GUILayout.Height(STANDARD_BUTTON_HEIGHT)))
             {
                 uiScale = 2.0f;
                 ApplyScale();
@@ -797,14 +808,14 @@ namespace DuckovCheatGUI
             // Cache Management Section
             DrawSectionHeader("缓存管理");
 
-            if (GUILayout.Button("🔄 重新扫描物品", btnStyle, GUILayout.Height(45)))
+            if (GUILayout.Button("🔄 重新扫描物品", btnStyle, GUILayout.Height(STANDARD_BUTTON_HEIGHT)))
             {
                 ScanAndCacheItems();
             }
 
             GUILayout.Space(5);
 
-            if (GUILayout.Button("🗑️ 删除缓存", btnStyle, GUILayout.Height(40)))
+            if (GUILayout.Button("🗑️ 删除缓存", btnStyle, GUILayout.Height(STANDARD_BUTTON_HEIGHT)))
             {
                 try
                 {
@@ -825,7 +836,7 @@ namespace DuckovCheatGUI
 
             GUILayout.Space(5);
 
-            if (GUILayout.Button("📁 打开缓存文件夹", btnStyle, GUILayout.Height(40)))
+            if (GUILayout.Button("📁 打开缓存文件夹", btnStyle, GUILayout.Height(STANDARD_BUTTON_HEIGHT)))
             {
                 try
                 {
@@ -842,7 +853,7 @@ namespace DuckovCheatGUI
             // Debug Section
             DrawSectionHeader("调试");
 
-            if (GUILayout.Button("📋 输出物品列表", btnStyle, GUILayout.Height(40)))
+            if (GUILayout.Button("📋 输出物品列表", btnStyle, GUILayout.Height(STANDARD_BUTTON_HEIGHT)))
             {
                 UnityEngine.Debug.Log("=== 物品列表（前20个）===");
                 foreach (var item in allItems.Take(20))
