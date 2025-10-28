@@ -132,6 +132,7 @@ namespace DuckovCheatGUI
         private readonly Color colorWarning = new Color(1f, 0.8f, 0.2f);
         private readonly Color colorError = new Color(1f, 0.3f, 0.3f);
         private readonly Color colorMuted = new Color(0.7f, 0.7f, 0.7f);
+        private readonly Color colorWindowTitle = new Color(1f, 1f, 1f); // Light blue-white for window title
 
         // ============ UI Dimensions (Uniform) ============
         private const float STANDARD_BUTTON_HEIGHT = 35f;
@@ -194,7 +195,7 @@ namespace DuckovCheatGUI
         private void InitializeBackground()
         {
             backgroundTexture = new Texture2D(1, 1, TextureFormat.ARGB32, false);
-            backgroundTexture.SetPixel(0, 0, new Color(0.15f, 0.15f, 0.15f, 1f)); // 深灰色，完全不透明
+            backgroundTexture.SetPixel(0, 0, new Color(0.15f, 0.15f, 0.15f, 0.8f));
             backgroundTexture.Apply();
         }
 
@@ -532,6 +533,13 @@ namespace DuckovCheatGUI
             return new GUIStyle(GUI.skin.textField) { fontSize = fontSize };
         }
 
+        private GUIStyle CreateWindowTitleStyle(Color titleColor)
+        {
+            var style = new GUIStyle(GUI.skin.window);
+            style.normal.textColor = titleColor;
+            return style;
+        }
+
         private void DrawSectionHeader(string title)
         {
             var style = CreateBoxStyle(FONT_SIZE_HEADER, colorHeader);
@@ -554,7 +562,9 @@ namespace DuckovCheatGUI
             Matrix4x4 originalMatrix = GUI.matrix;
             GUI.matrix = Matrix4x4.Scale(new Vector3(uiScale, uiScale, 1));
 
-            Rect scaledRect = GUILayout.Window(123456, windowRect, DrawWindow, $"Duckov Cheat Menu [{uiScale:F1}x]");
+            // Create custom window style with colored title
+            var windowStyle = CreateWindowTitleStyle(colorWindowTitle);
+            Rect scaledRect = GUILayout.Window(123456, windowRect, DrawWindow, $"Duckov Cheat Menu [{uiScale:F1}x]", windowStyle);
             windowRect = scaledRect;
 
             GUI.matrix = originalMatrix;
