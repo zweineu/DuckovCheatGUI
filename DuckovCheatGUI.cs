@@ -17,6 +17,7 @@ namespace DuckovCheatGUI
         public static string CacheFilePath;
         public static string ConfigFilePath;
         private Harmony harmony;
+        private bool guiInitialized = false;
 
         private void OnEnable()
         {
@@ -41,9 +42,10 @@ namespace DuckovCheatGUI
             try
             {
                 this.harmony = new Harmony("com.dandan.duckov.cheatgui");
-                this.harmony.PatchAll(Assembly.GetExecutingAssembly());
+                // Only patch if you need other patches - remove this line if not needed
+                // this.harmony.PatchAll(Assembly.GetExecutingAssembly());
                 
-                UnityEngine.Debug.Log("[成功] Harmony 补丁已应用");
+                UnityEngine.Debug.Log("[成功] Mod 初始化完成");
                 UnityEngine.Debug.Log("进入游戏后按 Home 键打开菜单");
             }
             catch (Exception e)
@@ -52,33 +54,21 @@ namespace DuckovCheatGUI
             }
         }
 
-        private void OnDisable()
+        private void Update()
         {
-            this.harmony.UnpatchAll("com.dandan.duckov.cheatgui");
-            UnityEngine.Debug.Log("CheatGUI Mod 已卸载");
-        }
-    }
-
-    [HarmonyPatch(typeof(CheatingManager), "Update")]
-    public static class CheatingManager_Update_Patch
-    {
-        private static bool initialized = false;
-        private static GameObject guiObject;
-        
-        static void Postfix()
-        {
-            if (!initialized)
+            // Initialize GUI once
+            if (!guiInitialized)
             {
                 try
                 {
                     UnityEngine.Debug.Log("[>>] 创建GUI GameObject...");
                     
-                    guiObject = new GameObject("CheatGUI_Renderer");
-                    UnityEngine.Object.DontDestroyOnLoad(guiObject);
-                    ModBehaviour.Renderer = guiObject.AddComponent<GUIRenderer>();
+                    GameObject guiObject = new GameObject("CheatGUI_Renderer");
+                    DontDestroyOnLoad(guiObject);
+                    Renderer = guiObject.AddComponent<GUIRenderer>();
                     
                     UnityEngine.Debug.Log("[成功] GUI 创建成功！");
-                    initialized = true;
+                    guiInitialized = true;
                 }
                 catch (Exception e)
                 {
@@ -86,13 +76,24 @@ namespace DuckovCheatGUI
                 }
             }
             
+            // Check for toggle key
             if (Input.GetKeyDown(KeyCode.Home) || Input.GetKeyDown(KeyCode.Backslash))
             {
-                ModBehaviour.Renderer?.ToggleWindow();
+                Renderer?.ToggleWindow();
             }
+        }
 
+        private void OnDisable()
+        {
+            if (harmony != null)
+            {
+                this.harmony.UnpatchAll("com.dandan.duckov.cheatgui");
+            }
+            UnityEngine.Debug.Log("CheatGUI Mod 已卸载");
         }
     }
+
+
 
     public class GUIRenderer : MonoBehaviour
     {
