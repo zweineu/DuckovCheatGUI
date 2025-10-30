@@ -106,6 +106,9 @@ namespace DuckovCheatGUI
         private bool showWindow = false;
         private Rect windowRect = new Rect(50, 50, 750, 700);
         private Texture2D backgroundTexture;
+        private readonly Dictionary<int, IconData> itemIconCache = new Dictionary<int, IconData>();
+        private readonly Dictionary<string, IconData> iconNameCache = new Dictionary<string, IconData>(StringComparer.OrdinalIgnoreCase);
+        private bool globalSpriteCacheInitialized = false;
 
         // ============ Tab System ============
         private int currentTab = 0;
@@ -128,6 +131,7 @@ namespace DuckovCheatGUI
         private bool itemsLoaded = false;
         private bool isScanning = false;
         private DateTime cacheTime = DateTime.MinValue;
+        private bool hideCrossIconItems = false;
 
         // ============ Pagination ✨ NEW ============
         private int currentPage = 0;
@@ -163,6 +167,8 @@ namespace DuckovCheatGUI
         private const float TAB_BUTTON_HEIGHT = 50f;
         private const float SECTION_HEADER_HEIGHT = 35f;
         private const float STATUS_MESSAGE_HEIGHT = 30f;
+        private const float ICON_SIZE = 64f;
+        private const string CROSS_ICON_REFERENCE = "cross";
 
         // ============ Font Sizes (Uniform) ============
         private const int FONT_SIZE_SMALL = 20;
@@ -390,6 +396,7 @@ namespace DuckovCheatGUI
                     UnityEngine.Debug.Log(LocalizationManager.GetString("loaded_from_cache", allItems.Count));
                     UnityEngine.Debug.Log(LocalizationManager.GetString("cache_time_format", cacheTime));
                     itemsLoaded = true;
+                    PerformSearch();
                 }
                 else
                 {
@@ -448,6 +455,7 @@ namespace DuckovCheatGUI
                                         isMod = false
                                     };
 
+                                    RegisterIconForItem(info, itemEntry.prefab);
                                     allItems.Add(info);
                                     mainGameCount++;
                                 }
@@ -505,6 +513,7 @@ namespace DuckovCheatGUI
                                             isMod = true
                                         };
 
+                                        RegisterIconForItem(info, modItemEntry.prefab);
                                         allItems.Add(info);
                                         modItemCount++;
                                     }
@@ -564,6 +573,7 @@ namespace DuckovCheatGUI
                                 isMod = false
                             };
 
+                            RegisterIconForItem(info, item);
                             allItems.Add(info);
                         }
                         catch (Exception e)
@@ -587,6 +597,7 @@ namespace DuckovCheatGUI
                 UnityEngine.Debug.Log("=================================");
 
                 itemsLoaded = true;
+                PerformSearch();
             }
             catch (Exception e)
             {
@@ -619,6 +630,410 @@ namespace DuckovCheatGUI
             {
                 UnityEngine.Debug.LogError($"{LocalizationManager.GetString("save_cache_failed")}: {e.Message}");
             }
+        }
+
+        private void RegisterIconForItem(ItemInfo info, object prefab)
+        {
+            if (info == null || prefab == null)
+                return;
+
+            try
+            {
+                var iconData = ExtractIconData(prefab);
+                if (iconData != null)
+                {
+                    if (iconData.Texture != null && !iconData.LookupAttempted)
+                    {
+                        iconData.LookupAttempted = true;
+                    }
+
+                    itemIconCache[info.id] = iconData;
+
+                    if (iconData.Texture != null && !string.IsNullOrEmpty(iconData.Reference) && !iconNameCache.ContainsKey(iconData.Reference))
+                    {
+                        iconNameCache[iconData.Reference] = iconData;
+                    }
+
+                    if (string.IsNullOrEmpty(info.iconReference))
+                    {
+                        info.iconReference = iconData.Reference;
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                UnityEngine.Debug.LogWarning($"[Icon] Failed to cache icon for item {info.id}: {e.Message}");
+            }
+        }
+
+        private IconData ExtractIconData(object prefab)
+        {
+            if (prefab == null)
+                return null;
+
+            IconData iconData = null;
+            Type prefabType = prefab.GetType();
+            string[] candidateMembers =
+            {
+                "Icon", "icon",
+                "ItemIcon", "itemIcon",
+                "InventoryIcon", "inventoryIcon",
+                "IconSprite", "iconSprite",
+                "IconTexture", "iconTexture",
+                "IconRef", "iconRef",
+                "IconReference", "iconReference"
+            };
+
+            foreach (string memberName in candidateMembers)
+            {
+                if (TryGetIconFromMember(prefab, prefabType, memberName, out iconData))
+                {
+                    break;
+                }
+            }
+
+            if (iconData == null)
+            {
+                iconData = InvokeIconMethod(prefab, prefabType, "GetIcon");
+            }
+
+            if (iconData == null)
+            {
+                iconData = InvokeIconMethod(prefab, prefabType, "GetSprite");
+            }
+
+            if (iconData == null)
+            {
+                var property = prefabType.GetProperty("IconName", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+                if (property != null)
+                {
+                    iconData = ConvertToIconDataSafe(property.GetValue(prefab));
+                }
+            }
+
+            return iconData;
+        }
+
+        private IconData InvokeIconMethod(object prefab, Type prefabType, string methodName)
+        {
+            try
+            {
+                var method = prefabType.GetMethod(methodName, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance, null, Type.EmptyTypes, null);
+                if (method != null)
+                {
+                    return ConvertToIconDataSafe(method.Invoke(prefab, null));
+                }
+            }
+            catch (Exception e)
+            {
+                UnityEngine.Debug.LogWarning($"[Icon] Method {methodName} failed: {e.Message}");
+            }
+            return null;
+        }
+
+        private bool TryGetIconFromMember(object prefab, Type prefabType, string memberName, out IconData iconData)
+        {
+            iconData = null;
+
+            try
+            {
+                var property = prefabType.GetProperty(memberName, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+                if (property != null)
+                {
+                    iconData = ConvertToIconDataSafe(property.GetValue(prefab));
+                    if (iconData != null)
+                        return true;
+                }
+
+                var field = prefabType.GetField(memberName, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+                if (field != null)
+                {
+                    iconData = ConvertToIconDataSafe(field.GetValue(prefab));
+                    if (iconData != null)
+                        return true;
+                }
+            }
+            catch (Exception e)
+            {
+                UnityEngine.Debug.LogWarning($"[Icon] Reading member {memberName} failed: {e.Message}");
+            }
+
+            return iconData != null;
+        }
+
+        private IconData ConvertToIconDataSafe(object value)
+        {
+            if (value == null)
+                return null;
+
+            try
+            {
+                if (value is IconData existing)
+                {
+                    return existing;
+                }
+
+                if (value is Sprite sprite)
+                {
+                    return CreateIconDataFromSprite(sprite);
+                }
+
+                if (value is Sprite[] spriteArray && spriteArray.Length > 0)
+                {
+                    return CreateIconDataFromSprite(spriteArray[0]);
+                }
+
+                if (value is Texture2D texture2D)
+                {
+                    return new IconData
+                    {
+                        Texture = texture2D,
+                        TexCoords = new Rect(0f, 0f, 1f, 1f),
+                        Reference = texture2D.name,
+                        LookupAttempted = true
+                    };
+                }
+
+                if (value is Texture texture)
+                {
+                    return new IconData
+                    {
+                        Texture = texture,
+                        TexCoords = new Rect(0f, 0f, 1f, 1f),
+                        Reference = texture.name,
+                        LookupAttempted = true
+                    };
+                }
+
+                if (value is string reference)
+                {
+                    return ResolveIconByName(reference) ?? new IconData
+                    {
+                        Texture = null,
+                        TexCoords = new Rect(0f, 0f, 1f, 1f),
+                        Reference = reference,
+                        LookupAttempted = false
+                    };
+                }
+            }
+            catch (Exception e)
+            {
+                UnityEngine.Debug.LogWarning($"[Icon] Failed to convert icon value: {e.Message}");
+            }
+
+            return null;
+        }
+
+        private IconData CreateIconDataFromSprite(Sprite sprite)
+        {
+            if (sprite == null || sprite.texture == null || sprite.texture.width == 0 || sprite.texture.height == 0)
+                return null;
+
+            Texture texture = sprite.texture;
+            Rect rect = sprite.rect;
+
+            return new IconData
+            {
+                Texture = texture,
+                TexCoords = new Rect(rect.x / texture.width, rect.y / texture.height, rect.width / texture.width, rect.height / texture.height),
+                Reference = sprite.name,
+                LookupAttempted = true
+            };
+        }
+
+        private IconData ResolveIconForItem(ItemInfo item)
+        {
+            if (item == null)
+                return null;
+
+            if (itemIconCache.TryGetValue(item.id, out IconData cached) && cached != null)
+            {
+                if (cached.Texture != null)
+                {
+                    return cached;
+                }
+
+                if (!cached.LookupAttempted)
+                {
+                    IconData upgraded = null;
+
+                    if (!string.IsNullOrEmpty(cached.Reference))
+                    {
+                        upgraded = ResolveIconByName(cached.Reference);
+                    }
+
+                    if (upgraded == null && !string.IsNullOrEmpty(item.iconReference) && item.iconReference != cached.Reference)
+                    {
+                        upgraded = ResolveIconByName(item.iconReference);
+                    }
+
+                    if (upgraded == null)
+                    {
+                        upgraded = TryResolveIconFromAssets(item.id);
+                    }
+
+                    cached.LookupAttempted = true;
+
+                    if (upgraded != null)
+                    {
+                        upgraded.LookupAttempted = true;
+
+                        itemIconCache[item.id] = upgraded;
+
+                        if (upgraded.Texture != null && !string.IsNullOrEmpty(upgraded.Reference))
+                        {
+                            iconNameCache[upgraded.Reference] = upgraded;
+                        }
+
+                        if (string.IsNullOrEmpty(item.iconReference))
+                        {
+                            item.iconReference = upgraded.Reference;
+                        }
+
+                        return upgraded;
+                    }
+                }
+
+                return cached;
+            }
+
+            IconData resolved = null;
+
+            if (!string.IsNullOrEmpty(item.iconReference))
+            {
+                resolved = ResolveIconByName(item.iconReference);
+            }
+
+            if (resolved == null)
+            {
+                resolved = TryResolveIconFromAssets(item.id);
+            }
+
+            if (resolved != null)
+            {
+                resolved.LookupAttempted = true;
+                itemIconCache[item.id] = resolved;
+
+                if (resolved.Texture != null && !string.IsNullOrEmpty(resolved.Reference))
+                {
+                    iconNameCache[resolved.Reference] = resolved;
+                }
+
+                if (string.IsNullOrEmpty(item.iconReference))
+                {
+                    item.iconReference = resolved.Reference;
+                }
+
+                return resolved;
+            }
+
+            IconData placeholder = new IconData
+            {
+                Texture = null,
+                TexCoords = new Rect(0f, 0f, 1f, 1f),
+                Reference = !string.IsNullOrEmpty(item.iconReference) ? item.iconReference : null,
+                LookupAttempted = true
+            };
+
+            itemIconCache[item.id] = placeholder;
+            return placeholder;
+        }
+
+        private IconData ResolveIconByName(string iconName)
+        {
+            if (string.IsNullOrEmpty(iconName))
+                return null;
+
+            if (iconNameCache.TryGetValue(iconName, out IconData cached))
+            {
+                return cached;
+            }
+
+            EnsureGlobalSpriteCache();
+
+            if (iconNameCache.TryGetValue(iconName, out IconData cachedAfterLookup))
+            {
+                return cachedAfterLookup;
+            }
+
+            return null;
+        }
+
+        private void EnsureGlobalSpriteCache()
+        {
+            if (globalSpriteCacheInitialized)
+                return;
+
+            try
+            {
+                Sprite[] sprites = Resources.FindObjectsOfTypeAll<Sprite>();
+                foreach (Sprite sprite in sprites)
+                {
+                    if (sprite == null)
+                        continue;
+
+                    if (!iconNameCache.ContainsKey(sprite.name))
+                    {
+                        IconData data = CreateIconDataFromSprite(sprite);
+                        if (data != null)
+                        {
+                            iconNameCache[sprite.name] = data;
+                        }
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                UnityEngine.Debug.LogWarning($"[Icon] Failed to build sprite cache: {e.Message}");
+            }
+            finally
+            {
+                globalSpriteCacheInitialized = true;
+            }
+        }
+
+        private IconData TryResolveIconFromAssets(int itemId)
+        {
+            try
+            {
+                if (ItemAssetsCollection.Instance != null)
+                {
+                    var entries = ItemAssetsCollection.Instance.entries;
+                    if (entries != null)
+                    {
+                        foreach (var entry in entries)
+                        {
+                            if (entry != null && entry.typeID == itemId && entry.prefab != null)
+                            {
+                                return ExtractIconData(entry.prefab);
+                            }
+                        }
+                    }
+
+                    var dynamicField = typeof(ItemAssetsCollection).GetField("dynamicDic", BindingFlags.NonPublic | BindingFlags.Static);
+                    if (dynamicField != null)
+                    {
+                        if (dynamicField.GetValue(null) is Dictionary<int, ItemAssetsCollection.DynamicEntry> dynamicDic && dynamicDic.TryGetValue(itemId, out var dynamicEntry) && dynamicEntry?.prefab != null)
+                        {
+                            return ExtractIconData(dynamicEntry.prefab);
+                        }
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                UnityEngine.Debug.LogWarning($"[Icon] Asset lookup failed for item {itemId}: {e.Message}");
+            }
+
+            return null;
+        }
+
+        private class IconData
+        {
+            public Texture Texture;
+            public Rect TexCoords;
+            public string Reference;
+            public bool LookupAttempted;
         }
 
         // ============ HELPER: Style Methods ============
@@ -680,6 +1095,11 @@ namespace DuckovCheatGUI
                 clipping = TextClipping.Overflow
             };
             return style;
+        }
+
+        private GUIStyle CreateToggleStyle(int fontSize)
+        {
+            return new GUIStyle(GUI.skin.toggle) { fontSize = fontSize };
         }
 
         private void DrawSectionHeader(string title)
@@ -833,6 +1253,20 @@ namespace DuckovCheatGUI
             GUILayout.EndHorizontal();
             GUILayout.Space(8);
 
+            // Filters
+            GUILayout.BeginHorizontal(GUILayout.Height(STANDARD_BUTTON_HEIGHT));
+            bool newHideCross = GUILayout.Toggle(hideCrossIconItems,
+                LocalizationManager.GetString("filter_cross_label"),
+                CreateToggleStyle(FONT_SIZE_SMALL), GUILayout.Height(STANDARD_BUTTON_HEIGHT));
+            if (newHideCross != hideCrossIconItems)
+            {
+                hideCrossIconItems = newHideCross;
+                PerformSearch();
+            }
+            GUILayout.FlexibleSpace();
+            GUILayout.EndHorizontal();
+            GUILayout.Space(6);
+
             // Status & Results
             if (isScanning)
             {
@@ -894,7 +1328,11 @@ namespace DuckovCheatGUI
 
         private void DrawItemCard(ItemInfo item)
         {
-            GUILayout.BeginVertical(GUI.skin.box);
+            GUILayout.BeginHorizontal(GUI.skin.box);
+
+            DrawItemIconArea(item);
+
+            GUILayout.BeginVertical();
 
             // Item Header
             GUILayout.BeginHorizontal();
@@ -907,13 +1345,13 @@ namespace DuckovCheatGUI
             {
                 var descStyle = CreateLabelStyle(FONT_SIZE_SMALL, colorMuted);
                 descStyle.wordWrap = true;
-                float maxWidth = baseWindowWidth - 30;
-                GUILayout.Label(item.description, descStyle, GUILayout.MaxWidth(maxWidth / uiScale));
+                float availableWidth = Mathf.Max(120f, (baseWindowWidth - ICON_SIZE - 50f) / uiScale);
+                GUILayout.Label(item.description, descStyle, GUILayout.MaxWidth(availableWidth));
             }
 
             // Properties & Action Buttons - Split into two rows to prevent wrapping
             GUILayout.BeginVertical();
-            
+
             // Properties row
             GUILayout.BeginHorizontal(GUILayout.Height(SMALL_BUTTON_HEIGHT));
             string propertiesText = $"{LocalizationManager.GetString("value")}: {item.value} | {LocalizationManager.GetString("weight")}: {item.weight:F1}kg | {LocalizationManager.GetString("stack")}: {item.maxStack}";
@@ -922,7 +1360,7 @@ namespace DuckovCheatGUI
             propertiesStyle.clipping = TextClipping.Overflow;
             GUILayout.Label(propertiesText, propertiesStyle, GUILayout.ExpandWidth(true));
             GUILayout.EndHorizontal();
-            
+
             // Action buttons row
             GUILayout.BeginHorizontal(GUILayout.Height(SMALL_BUTTON_HEIGHT));
             var btnStyle = CreateButtonStyle(FONT_SIZE_SMALL);
@@ -935,11 +1373,39 @@ namespace DuckovCheatGUI
             if (GUILayout.Button($"x{item.maxStack}", btnStyle, GUILayout.Width(SMALL_BUTTON_WIDTH), GUILayout.Height(SMALL_BUTTON_HEIGHT)))
                 SpawnItem(item.id, item.maxStack);
             GUILayout.EndHorizontal();
-            
+
             GUILayout.EndVertical();
 
             GUILayout.EndVertical();
+
+            GUILayout.EndHorizontal();
             GUILayout.Space(5);
+        }
+
+        private void DrawItemIconArea(ItemInfo item)
+        {
+            GUILayout.BeginVertical(GUILayout.Width(ICON_SIZE + 16f));
+
+            Rect iconRect = GUILayoutUtility.GetRect(ICON_SIZE, ICON_SIZE, GUILayout.Width(ICON_SIZE), GUILayout.Height(ICON_SIZE));
+            IconData iconData = ResolveIconForItem(item);
+
+            if (iconData != null && iconData.Texture != null)
+            {
+                GUI.DrawTextureWithTexCoords(iconRect, iconData.Texture, iconData.TexCoords);
+            }
+            else
+            {
+                GUI.Box(iconRect, LocalizationManager.GetString("icon_missing"), CreateBoxStyle(FONT_SIZE_SMALL, colorMuted));
+            }
+
+            string reference = item?.iconReference;
+            if (string.IsNullOrEmpty(reference) && iconData != null)
+            {
+                reference = iconData.Reference;
+            }
+
+            GUILayout.EndVertical();
+            GUILayout.Space(10f);
         }
 
         private void DrawPlayerCheatTab()
@@ -1345,6 +1811,13 @@ namespace DuckovCheatGUI
                 }
             }
 
+            if (hideCrossIconItems)
+            {
+                searchResults = searchResults
+                    .Where(i => !string.Equals(i.iconReference, CROSS_ICON_REFERENCE, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+            }
+
         }
 
         private void SpawnItemById()
@@ -1443,6 +1916,7 @@ namespace DuckovCheatGUI
         public int maxStack;
         public float weight;
         public bool isMod;
+        public string iconReference;
     }
 
     // 缓存结构
