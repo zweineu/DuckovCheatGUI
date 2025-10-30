@@ -147,6 +147,12 @@ namespace DuckovCheatGUI
         private const float MAX_SCALE = 2.0f;
         private float baseWindowWidth = 750f;
         private float baseWindowHeight = 700f;
+        private const float MIN_WINDOW_WIDTH = 500f;
+        private const float MIN_WINDOW_HEIGHT = 450f;
+        private const float RESIZE_HANDLE_SIZE = 20f;
+        private bool isResizingWindow = false;
+        private Vector2 resizeStartMousePosition;
+        private Vector2 resizeStartWindowSize;
 
         // ============ Colors & Styles ============
         private readonly Color colorHeader = new Color(0.2f, 0.8f, 1f);
@@ -1116,6 +1122,68 @@ namespace DuckovCheatGUI
             GUILayout.Space(3);
         }
 
+        private void HandleWindowResize()
+        {
+            Rect handleRect = new Rect(windowRect.width - RESIZE_HANDLE_SIZE, windowRect.height - RESIZE_HANDLE_SIZE,
+                RESIZE_HANDLE_SIZE, RESIZE_HANDLE_SIZE);
+
+            int controlId = GUIUtility.GetControlID(FocusType.Passive);
+            Event current = Event.current;
+
+            switch (current.GetTypeForControl(controlId))
+            {
+                case EventType.MouseDown:
+                    if (handleRect.Contains(current.mousePosition))
+                    {
+                        GUIUtility.hotControl = controlId;
+                        isResizingWindow = true;
+                        resizeStartMousePosition = current.mousePosition;
+                        resizeStartWindowSize = new Vector2(windowRect.width, windowRect.height);
+                        current.Use();
+                    }
+                    break;
+
+                case EventType.MouseDrag:
+                    if (GUIUtility.hotControl == controlId && isResizingWindow)
+                    {
+                        Vector2 delta = current.mousePosition - resizeStartMousePosition;
+                        float minWidth = MIN_WINDOW_WIDTH * uiScale;
+                        float minHeight = MIN_WINDOW_HEIGHT * uiScale;
+
+                        float newWidth = Mathf.Max(resizeStartWindowSize.x + delta.x, minWidth);
+                        float newHeight = Mathf.Max(resizeStartWindowSize.y + delta.y, minHeight);
+
+                        float maxWidth = Mathf.Max(minWidth, Screen.width - windowRect.x);
+                        float maxHeight = Mathf.Max(minHeight, Screen.height - windowRect.y);
+
+                        windowRect.width = Mathf.Clamp(newWidth, minWidth, maxWidth);
+                        windowRect.height = Mathf.Clamp(newHeight, minHeight, maxHeight);
+
+                        baseWindowWidth = windowRect.width / uiScale;
+                        baseWindowHeight = windowRect.height / uiScale;
+
+                        current.Use();
+                    }
+                    break;
+
+                case EventType.MouseUp:
+                case EventType.Ignore:
+                    if (GUIUtility.hotControl == controlId)
+                    {
+                        GUIUtility.hotControl = 0;
+                        isResizingWindow = false;
+                        current.Use();
+                    }
+                    break;
+            }
+
+            if (Event.current.type == EventType.Repaint)
+            {
+                var handleStyle = CreateBoxStyle(FONT_SIZE_SMALL, colorMuted);
+                GUI.Box(handleRect, "<>", handleStyle);
+            }
+        }
+
         private void OnGUI()
         {
             if (!showWindow) return;
@@ -1173,8 +1241,10 @@ namespace DuckovCheatGUI
                     break;
             }
 
+            HandleWindowResize();
+
             GUILayout.EndVertical();
-            GUI.DragWindow(new Rect(0, 0, baseWindowWidth, 20));
+            GUI.DragWindow(new Rect(0, 0, windowRect.width, 20));
         }
 
         private void DrawTabNavigation()
