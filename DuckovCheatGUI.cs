@@ -116,6 +116,7 @@ namespace DuckovCheatGUI
         private string[] availableLanguages = { "zh-CN", "en-US" };
         private string[] languageDisplayNames = { "中文", "English" };
         private bool showLanguageDropdown = false;
+        private bool previousLanguageDropdownState = false;
 
         // ============ Item Management ============
         private string searchText = "";
@@ -705,6 +706,13 @@ namespace DuckovCheatGUI
                 showLanguageDropdown = false;
             }
 
+            // 检查下拉菜单是否刚刚关闭，如果是则重置窗口大小
+            if (previousLanguageDropdownState && !showLanguageDropdown)
+            {
+                ApplyScale();
+            }
+            previousLanguageDropdownState = showLanguageDropdown;
+
             // 应用UI缩放
             Matrix4x4 originalMatrix = GUI.matrix;
             GUI.matrix = Matrix4x4.Scale(new Vector3(uiScale, uiScale, 1));
@@ -980,7 +988,7 @@ namespace DuckovCheatGUI
             DrawSectionHeader(LocalizationManager.GetString("important_notice"));
             var warningStyle = CreateBoxStyle(FONT_SIZE_SMALL, colorWarning);
             warningStyle.wordWrap = true;
-            GUILayout.Label(LocalizationManager.GetString("scene_warning"), warningStyle, GUILayout.Height(500));
+            GUILayout.Label(LocalizationManager.GetString("scene_warning"), warningStyle, GUILayout.Height(300));
         }
 
         private void DrawSettingsTab()
@@ -1013,6 +1021,18 @@ namespace DuckovCheatGUI
             GUILayout.Label(currentScaleText, CreateFlexibleLabelStyle(FONT_SIZE_MEDIUM, colorSuccess), GUILayout.Width(currentScaleWidth));
 
             var btnStyle = CreateButtonStyle(FONT_SIZE_SMALL);
+            if (GUILayout.Button("50%", btnStyle, GUILayout.Height(STANDARD_BUTTON_HEIGHT)))
+            {
+                uiScale = 0.5f;
+                ApplyScale();
+                SaveConfig();
+            }
+            if (GUILayout.Button("75%", btnStyle, GUILayout.Height(STANDARD_BUTTON_HEIGHT)))
+            {
+                uiScale = 0.75f;
+                ApplyScale();
+                SaveConfig();
+            }
             if (GUILayout.Button("100%", btnStyle, GUILayout.Height(STANDARD_BUTTON_HEIGHT)))
             {
                 uiScale = 1.0f;
@@ -1136,18 +1156,18 @@ namespace DuckovCheatGUI
 
             GUILayout.Space(12);
 
-            // System Language Info Section (Debug)
-            DrawSectionHeader(LocalizationManager.GetString("system_language_info"));
+            // // System Language Info Section (Debug)
+            // DrawSectionHeader(LocalizationManager.GetString("system_language_info"));
             
-            GUILayout.BeginVertical(GUI.skin.box);
-            GUILayout.Label(LocalizationManager.GetSystemLanguageInfo(), CreateLabelStyle(FONT_SIZE_SMALL, colorMuted));
-            GUILayout.Label($"{LocalizationManager.GetString("current_language")}: {LocalizationManager.GetCurrentLanguage()}", CreateLabelStyle(FONT_SIZE_SMALL, colorSuccess));
-            GUILayout.Label($"{LocalizationManager.GetString("supported_languages")}: {string.Join(", ", LocalizationManager.GetAvailableLanguages())}", CreateLabelStyle(FONT_SIZE_SMALL, colorHeader));
-            GUILayout.Label($"{LocalizationManager.GetString("cache_file")}: {ModBehaviour.CacheFilePath}", CreateLabelStyle(FONT_SIZE_SMALL, colorMuted));
-            GUILayout.Label($"{LocalizationManager.GetString("config_file")}: {ModBehaviour.ConfigFilePath}", CreateLabelStyle(FONT_SIZE_SMALL, colorMuted));
-            GUILayout.EndVertical();
+            // GUILayout.BeginVertical(GUI.skin.box);
+            // GUILayout.Label(LocalizationManager.GetSystemLanguageInfo(), CreateLabelStyle(FONT_SIZE_SMALL, colorMuted));
+            // GUILayout.Label($"{LocalizationManager.GetString("current_language")}: {LocalizationManager.GetCurrentLanguage()}", CreateLabelStyle(FONT_SIZE_SMALL, colorSuccess));
+            // GUILayout.Label($"{LocalizationManager.GetString("supported_languages")}: {string.Join(", ", LocalizationManager.GetAvailableLanguages())}", CreateLabelStyle(FONT_SIZE_SMALL, colorHeader));
+            // GUILayout.Label($"{LocalizationManager.GetString("cache_file")}: {ModBehaviour.CacheFilePath}", CreateLabelStyle(FONT_SIZE_SMALL, colorMuted));
+            // GUILayout.Label($"{LocalizationManager.GetString("config_file")}: {ModBehaviour.ConfigFilePath}", CreateLabelStyle(FONT_SIZE_SMALL, colorMuted));
+            // GUILayout.EndVertical();
 
-            GUILayout.Space(12);
+            // GUILayout.Space(12);
 
             // Cache Management Section
             DrawSectionHeader(LocalizationManager.GetString("cache_management"));
@@ -1194,29 +1214,29 @@ namespace DuckovCheatGUI
 
             GUILayout.Space(12);
 
-            // Debug Section
-            DrawSectionHeader(LocalizationManager.GetString("debug"));
+            // // Debug Section
+            // DrawSectionHeader(LocalizationManager.GetString("debug"));
 
-            if (GUILayout.Button(LocalizationManager.GetString("output_item_list"), btnStyle, GUILayout.Height(STANDARD_BUTTON_HEIGHT)))
-            {
-                UnityEngine.Debug.Log(LocalizationManager.GetString("item_list_debug"));
-                foreach (var item in allItems.Take(20))
-                {
-                    UnityEngine.Debug.Log(LocalizationManager.GetString("item_format", item.id, item.name, item.isMod));
-                }
-            }
+            // if (GUILayout.Button(LocalizationManager.GetString("output_item_list"), btnStyle, GUILayout.Height(STANDARD_BUTTON_HEIGHT)))
+            // {
+            //     UnityEngine.Debug.Log(LocalizationManager.GetString("item_list_debug"));
+            //     foreach (var item in allItems.Take(20))
+            //     {
+            //         UnityEngine.Debug.Log(LocalizationManager.GetString("item_format", item.id, item.name, item.isMod));
+            //     }
+            // }
 
-            GUILayout.Space(5);
+            // GUILayout.Space(5);
 
-            if (GUILayout.Button(LocalizationManager.GetString("output_mod_items"), btnStyle, GUILayout.Height(STANDARD_BUTTON_HEIGHT)))
-            {
-                var modItems = allItems.Where(i => i.isMod).ToList();
-                UnityEngine.Debug.Log(LocalizationManager.GetString("mod_items_debug", modItems.Count));
-                foreach (var item in modItems)
-                {
-                    UnityEngine.Debug.Log(LocalizationManager.GetString("mod_item_format", item.id, item.name));
-                }
-            }
+            // if (GUILayout.Button(LocalizationManager.GetString("output_mod_items"), btnStyle, GUILayout.Height(STANDARD_BUTTON_HEIGHT)))
+            // {
+            //     var modItems = allItems.Where(i => i.isMod).ToList();
+            //     UnityEngine.Debug.Log(LocalizationManager.GetString("mod_items_debug", modItems.Count));
+            //     foreach (var item in modItems)
+            //     {
+            //         UnityEngine.Debug.Log(LocalizationManager.GetString("mod_item_format", item.id, item.name));
+            //     }
+            // }
 
             GUILayout.EndVertical();
         }
